@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>论文格式终检助手</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">Thesis Format Checker</p>
+      <h1>论文格式终检助手</h1>
+      <p class="subtitle">上传论文 Word 和学校格式要求 Word，自动检查参考文献、正文引用、图表编号、标题编号与学校格式要求，并生成修复版。</p>
+    </section>
+    <section class="card">
+      <form id="uploadForm">
+        <div class="uploadGrid">
+          <label class="upload"><input id="thesisInput" name="thesis_file" type="file" accept=".docx"><span id="thesisName">上传论文 .docx</span></label>
+          <label class="upload secondary"><input id="schoolInput" name="school_requirement_file" type="file" accept=".docx"><span id="schoolName">上传学校格式要求 .docx（可选）</span></label>
+        </div>
+        <div class="options">
+          <label><input type="checkbox" id="fixSuperscript" checked> 自动修复引用上标</label>
+          <label><input type="checkbox" id="fixRanges" checked> 自动合并连续引用</label>
+          <label><input type="checkbox" id="fixSchoolFormat"> 按学校要求修复低风险格式</label>
+        </div>
+        <button type="submit" id="submitBtn">开始检测</button>
+      </form>
+    </section>
+    <section id="status" class="status hidden"></section>
+    <section id="result" class="result hidden">
+      <div class="resultHeader"><div><h2>检测结果</h2><p id="filenameText" class="muted"></p></div><div id="downloadLinks" class="downloadLinks"></div></div>
+      <div id="summaryGrid" class="summaryGrid"></div>
+      <div id="compareBox" class="compareBox hidden"></div>
+      <div id="schoolRulesBox" class="schoolRulesBox hidden"></div>
+      <div class="columns"><div><h3>问题类型统计</h3><div id="typeCounts" class="list"></div></div><div><h3>问题明细</h3><div id="groupedIssues" class="issues"></div></div></div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
