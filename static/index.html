@@ -20,10 +20,11 @@
           <label class="upload secondary"><input id="schoolInput" name="school_requirement_file" type="file" accept=".docx"><span id="schoolName">上传学校格式要求 .docx（可选）</span></label>
         </div>
         <div class="options">
-          <label><input type="checkbox" id="fixSuperscript" checked> 自动修复引用上标</label>
+          <label><input type="checkbox" id="fixSuperscript" checked> 自动修复正文引用格式</label>
           <label><input type="checkbox" id="fixRanges" checked> 自动合并连续引用</label>
-          <label><input type="checkbox" id="fixSchoolFormat"> 按学校要求修复低风险格式</label>
+          <label><input type="checkbox" id="fixSchoolFormat"> 谨慎开启：按学校要求批量修复字体/字号/对齐</label>
         </div>
+        <p class="muted">建议先不开启“批量修复字体/字号/对齐”，先查看学校格式检查报告；该项会改动 Word 中的字体、字号和对齐方式。</p>
         <button type="submit" id="submitBtn">开始检测</button>
       </form>
     </section>
