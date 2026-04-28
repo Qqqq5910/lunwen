@@ -10,6 +10,7 @@ SIZE_MAP={"初号":42,"小初":36,"一号":26,"小一":24,"二号":22,"小二":1
 FONT_NAMES=["Times New Roman","Arial","Cambria","宋体","黑体","楷体","仿宋","微软雅黑"]
 CATEGORY_KEYWORDS={"body":["正文","论文正文"],"heading1":["一级标题","章标题","章名"],"heading2":["二级标题","节标题"],"heading3":["三级标题"],"abstract":["中文摘要","摘要"],"english_abstract":["英文摘要","ABSTRACT"],"keywords":["关键词","Key Words","Keywords"],"reference":["参考文献"],"figure_caption":["图题","图名","图注","图标题"],"table_caption":["表题","表名","表标题"]}
 ALIGNMENT_MAP={"居中":WD_ALIGN_PARAGRAPH.CENTER,"左对齐":WD_ALIGN_PARAGRAPH.LEFT,"右对齐":WD_ALIGN_PARAGRAPH.RIGHT,"两端对齐":WD_ALIGN_PARAGRAPH.JUSTIFY}
+DEFAULT_CITATION_RULE={"bracket_style":"[]","range_separator":"~","list_separator":",","superscript":True}
 
 def clean_text(text):
     return re.sub(r"\s+"," ",text.strip())
@@ -59,16 +60,52 @@ def extract_first_line_indent(text):
             return "首行缩进2字符",0.74
     return None,None
 
+def extract_citation_rule(text):
+    rule={}
+    if not any(k in text for k in ["引用","引文","文献标注","参考文献标注","正文标注","顺序编码"]):
+        return rule
+    if "【" in text or "】" in text:
+        rule["bracket_style"]="【】"
+    elif "〔" in text or "〕" in text:
+        rule["bracket_style"]="〔〕"
+    elif "［" in text or "］" in text:
+        rule["bracket_style"]="［］"
+    elif "[" in text or "]" in text:
+        rule["bracket_style"]="[]"
+    if "1~3" in text or "1～3" in text or "~" in text or "～" in text:
+        rule["range_separator"]="~"
+    elif "1-3" in text or "1–3" in text or "1—3" in text:
+        rule["range_separator"]="-"
+    if "1，2" in text or "中文逗号" in text:
+        rule["list_separator"]="，"
+    elif "1、2" in text or "顿号" in text:
+        rule["list_separator"]="、"
+    elif "1;2" in text or "1；2" in text or "分号" in text:
+        rule["list_separator"]=";"
+    elif "1,2" in text or "英文逗号" in text:
+        rule["list_separator']=','".replace("'","")
+    if "不上标" in text or "非上标" in text or "不采用上标" in text:
+        rule["superscript"]=False
+    elif "上标" in text or "角标" in text:
+        rule["superscript"]=True
+    if "list_separator']=" in rule:
+        rule["list_separator"]=rule.pop("list_separator']=")
+    return rule
+
 def parse_school_requirement_docx(file_path):
     document=load_document(file_path)
-    paragraphs=read_docx_paragraphs(document)
+    paragraphs=read_docx_paragraphs(document,include_tables=True)
     rules={}
+    citation_rule={}
     raw_lines=[]
     for para in paragraphs:
         text=clean_text(para["text"])
         if not text:
             continue
         raw_lines.append(text)
+        c_rule=extract_citation_rule(text)
+        if c_rule:
+            citation_rule.update(c_rule)
         category=infer_category(text)
         if not category:
             continue
@@ -94,7 +131,9 @@ def parse_school_requirement_docx(file_path):
             rule["first_line_indent_cm"]=indent_value
         rule["source_text"]=text
         rules[category]=rule
-    return {"rules":rules,"raw_text_preview":raw_lines[:80],"rule_count":len(rules)}
+    merged_citation_rule=DEFAULT_CITATION_RULE.copy()
+    merged_citation_rule.update(citation_rule)
+    return {"rules":rules,"citation_rule":merged_citation_rule,"raw_text_preview":raw_lines[:80],"rule_count":len(rules)}
 
 def paragraph_category(item,in_reference=False):
     text=item["text"].strip()
