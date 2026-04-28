@@ -18,6 +18,12 @@ def get_citation_rule(school_rules):
     return {"bracket_style": "[]", "range_separator": "~", "list_separator": ",", "superscript": True}
 
 
+def with_reference_title(categorized, reference_title):
+    if reference_title is None:
+        return categorized
+    return categorized + [{**reference_title, "category": "reference_title"}]
+
+
 def analyze_document_state(document, school_rules=None):
     citation_rule = get_citation_rule(school_rules)
     paragraphs = read_docx_paragraphs(document)
@@ -34,7 +40,7 @@ def analyze_document_state(document, school_rules=None):
     issues.extend(check_citation_reference_mapping(cited_numbers, reference_numbers, references))
     issues.extend(check_numbered_items(body_paragraphs))
     issues.extend(check_headings(body_paragraphs))
-    categorized = categorize_paragraphs(body_paragraphs, reference_paragraphs)
+    categorized = with_reference_title(categorize_paragraphs(body_paragraphs, reference_paragraphs), reference_title)
     if school_rules:
         issues.extend(check_school_format(categorized, school_rules))
     return {"paragraphs": paragraphs, "body_paragraphs": body_paragraphs, "reference_paragraphs": reference_paragraphs, "references": references, "citations": citations, "citation_sequences": citation_sequences, "issues": issues, "categorized": categorized}
