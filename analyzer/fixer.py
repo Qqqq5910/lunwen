@@ -8,10 +8,10 @@ from analyzer.docx_edit import replace_range_with_run
 
 def _set_run_fonts(run, east_asia=None, latin=None, size_pt=None, bold=None):
     rpr = run._element.get_or_add_rPr()
-    rfonts = rpr.rFonts
-    if rfonts is None:
-        rfonts = OxmlElement("w:rFonts")
-        rpr.append(rfonts)
+    for old in list(rpr.findall(qn("w:rFonts"))):
+        rpr.remove(old)
+    rfonts = OxmlElement("w:rFonts")
+    rpr.insert(0, rfonts)
     if east_asia:
         rfonts.set(qn("w:eastAsia"), east_asia)
     if latin:
