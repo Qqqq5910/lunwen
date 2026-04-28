@@ -23,6 +23,13 @@ def set_r_superscript(r_element):
     existing.set(qn("w:val"), "superscript")
 
 
+def clear_r_superscript(r_element):
+    rpr = r_element.get_or_add_rPr()
+    existing = rpr.find(qn("w:vertAlign"))
+    if existing is not None:
+        rpr.remove(existing)
+
+
 def set_run_font(run, font_name):
     run.font.name = font_name
     rpr = run._element.get_or_add_rPr()
@@ -72,6 +79,8 @@ def replace_range_with_run(paragraph, start, end, replacement, superscript=True)
     set_r_text(replacement_r, replacement)
     if superscript:
         set_r_superscript(replacement_r)
+    else:
+        clear_r_superscript(replacement_r)
     new_elements.append(replacement_r)
     if suffix:
         suffix_r = deepcopy(last_run._r)
