@@ -82,7 +82,7 @@ def extract_citation_rule_from_text(text):
     elif "1;2" in text or "1；2" in text or "分号" in text:
         rule["list_separator"]="；"
     elif "1,2" in text or "英文逗号" in text or ",[" in text:
-        rule["list_separator']=','"
+        rule["list_separator']=','".replace("'", "")
     if "不上标" in text or "非上标" in text or "不以上标" in text or "不采用上标" in text:
         rule["superscript"]=False
     elif "上标" in text or "角标" in text:
@@ -94,8 +94,6 @@ def normalize_citation_rule(rule):
     result.update(rule or {})
     if result.get("list_separator")=="；":
         result["list_separator"]=";"
-    if result.get("list_separator")=="，":
-        result["list_separator"]="," if result.get("prefer_english_comma") else "，"
     return result
 
 def parse_school_requirement_docx(file_path):
