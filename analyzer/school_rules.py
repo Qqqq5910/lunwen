@@ -61,7 +61,7 @@ def extract_first_line_indent(text):
 
 def parse_school_requirement_docx(file_path):
     document=load_document(file_path)
-    paragraphs=read_docx_paragraphs(document)
+    paragraphs=read_docx_paragraphs(document, include_tables=True)
     rules={}
     raw_lines=[]
     for para in paragraphs:
@@ -175,6 +175,34 @@ def compare_float(a,b,tolerance=0.2):
         return True
     return abs(float(a)-float(b))<=tolerance
 
+def get_paragraph_line_spacing(paragraph):
+    spacing = paragraph.paragraph_format.line_spacing
+    if spacing is not None:
+        return spacing
+    style = paragraph.style
+    if style and style.paragraph_format and style.paragraph_format.line_spacing is not None:
+        return style.paragraph_format.line_spacing
+    return None
+
+def get_paragraph_first_line_indent_cm(paragraph):
+    indent = paragraph.paragraph_format.first_line_indent
+    if indent is None:
+        style = paragraph.style
+        if style and style.paragraph_format:
+            indent = style.paragraph_format.first_line_indent
+    if indent is None:
+        return None
+    return indent.cm
+
+def compare_line_spacing(actual, expected):
+    if actual is None or expected is None:
+        return True
+    if hasattr(actual, "pt") and hasattr(expected, "pt"):
+        return compare_float(actual.pt, expected.pt, 0.5)
+    if not hasattr(actual, "pt") and not hasattr(expected, "pt"):
+        return compare_float(actual, expected, 0.05)
+    return True
+
 def check_school_format(categorized_paragraphs,school_rules):
     issues=[]
     rules=school_rules.get("rules",{}) if school_rules else {}
@@ -204,4 +232,16 @@ def check_school_format(categorized_paragraphs,school_rules):
         if rule.get("alignment_value") is not None and paragraph.alignment is not None and paragraph.alignment!=rule["alignment_value"]:
             t="school_alignment_mismatch"
             issues.append(Issue(type=t,label=issue_label(t),group="school",paragraph_index=item["index"],text=text,problem=f"{category} 对齐方式与学校要求不一致。",suggestion=f"建议调整为 {rule.get('alignment_name')}。",auto_fixable=True,meta={"category":category}))
+        if rule.get("line_spacing_value") is not None:
+            actual_spacing=get_paragraph_line_spacing(paragraph)
+            expected_spacing=rule["line_spacing_value"]
+            if actual_spacing is not None and not compare_line_spacing(actual_spacing, expected_spacing):
+                t="school_line_spacing_mismatch"
+                issues.append(Issue(type=t,label=issue_label(t),group="school",paragraph_index=item["index"],text=text,problem=f"{category} 行距与学校要求不一致。",suggestion=f"建议调整为 {rule.get('line_spacing_name')}。",auto_fixable=True,meta={"category":category,"expected":rule.get("line_spacing_name"),"actual":str(actual_spacing)}))
+        if rule.get("first_line_indent_cm") is not None:
+            actual_indent=get_paragraph_first_line_indent_cm(paragraph)
+            expected_indent=rule["first_line_indent_cm"]
+            if actual_indent is not None and not compare_float(actual_indent, expected_indent, 0.15):
+                t="school_first_line_indent_mismatch"
+                issues.append(Issue(type=t,label=issue_label(t),group="school",paragraph_index=item["index"],text=text,problem=f"{category} 首行缩进与学校要求不一致。",suggestion=f"建议调整为 {rule.get('first_line_indent_name')}。",auto_fixable=True,meta={"category":category,"expected":expected_indent,"actual":actual_indent}))
     return issues
