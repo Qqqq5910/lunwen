@@ -25,11 +25,21 @@ def runs_for_range(spans,start,end):
     return result
 
 
+def _run_is_superscript(run):
+    if run.font.superscript is True:
+        return True
+    style = getattr(run, "style", None)
+    if style is not None and getattr(style, "font", None) is not None:
+        return style.font.superscript is True
+    return False
+
+
 def is_marker_superscript(paragraph,start,end):
     runs=runs_for_range(get_run_spans(paragraph),start,end)
     if not runs:
         return False
-    return all(run.font.superscript is True for run in runs if run.text)
+    text_runs=[run for run in runs if run.text]
+    return bool(text_runs) and all(_run_is_superscript(run) for run in text_runs)
 
 
 def find_citations(paragraphs):
