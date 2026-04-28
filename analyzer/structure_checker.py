@@ -10,14 +10,14 @@ HEADING_PATTERN = re.compile(r"^\s*(\d+(?:\.\d+){1,3})\s+(.+)$")
 
 
 def is_probable_caption(text, kind, match):
-    value = text.strip()
-    if kind == "figure":
-        return match.start() == 0 and value.startswith("图")
-    if kind == "table":
-        return match.start() == 0 and value.startswith("表")
-    if kind == "equation":
-        before = value[:match.start()].strip()
-        return before == "" or before in {"其中", "式中"}
+    value=text.strip()
+    if kind=="figure":
+        return match.start()==0 and value.startswith("图")
+    if kind=="table":
+        return match.start()==0 and value.startswith("表")
+    if kind=="equation":
+        before=value[:match.start()].strip()
+        return before=="" or before in {"其中","式中"}
     return False
 
 
@@ -42,16 +42,7 @@ def check_numbered_items(paragraphs):
     for item in items:
         grouped[(item["kind"],item["chapter"])].append(item)
     for (kind,chapter),group in grouped.items():
-        seen={}
-        for item in group:
-            number=item["index"]
-            if number in seen:
-                t=f"{kind}_number_duplicate"
-                first=seen[number]
-                issues.append(Issue(type=t,label=issue_label(t),group="manual",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"{name_map[kind]} {chapter}-{number} 疑似重复出现。",suggestion=f"已仅按图题/表题/公式题识别，不再把正文中的“如{name_map[kind]} {chapter}-{number}所示”当作重复。请同时核对首次出现位置：段落 {first['paragraph_index']}。",auto_fixable=False))
-            else:
-                seen[number]=item
-        unique=sorted(seen.keys())
+        unique=sorted({item["index"] for item in group})
         if unique:
             expected=set(range(unique[0],unique[-1]+1))
             for miss in sorted(expected-set(unique)):
