@@ -1,8 +1,10 @@
 ISSUE_LABELS = {
     "citation_not_superscript": "正文引用未设置为上标",
+    "citation_should_not_superscript": "正文引用不应设置为上标",
     "citation_fullwidth_bracket": "正文引用使用全角方括号",
     "citation_spacing_or_comma": "正文引用逗号或空格不规范",
     "citation_sequence_not_compacted": "连续引用未合并",
+    "citation_style_mismatch": "正文引用样式与学校要求不一致",
     "citation_missing_reference": "正文引用缺少对应参考文献",
     "reference_not_cited": "参考文献未在正文中引用",
     "reference_section_missing": "未识别到参考文献区域",
