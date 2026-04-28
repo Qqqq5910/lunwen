@@ -1,7 +1,15 @@
 import re
 
 
-MARKER = r"(?:\[\s*\d+(?:\s*[-–—~～,，]\s*\d+)*\s*\]|［\s*\d+(?:\s*[-–—~～,，]\s*\d+)*\s*］)"
+NUMBER_LIST = r"\d+(?:\s*[-–—~～,，;；、]\s*\d+)*"
+MARKER = (
+    r"(?:"
+    r"\[\s*" + NUMBER_LIST + r"\s*\]"
+    r"|［\s*" + NUMBER_LIST + r"\s*］"
+    r"|【\s*" + NUMBER_LIST + r"\s*】"
+    r"|〔\s*" + NUMBER_LIST + r"\s*〕"
+    r")"
+)
 CITATION_PATTERN = re.compile(r"(" + MARKER + r")")
 SEPARATOR = r"(?:\s*(?:、|,|，|;|；)\s*|\s*)"
 CITATION_SEQUENCE_PATTERN = re.compile(r"(" + MARKER + r"(?:" + SEPARATOR + MARKER + r")+)")
@@ -9,7 +17,12 @@ SINGLE_MARKER_PATTERN = re.compile(MARKER)
 
 
 def normalize_marker(raw):
-    return raw.replace("［", "[").replace("］", "]").replace("，", ",")
+    value = raw.strip()
+    for left in ["［", "【", "〔"]:
+        value = value.replace(left, "[")
+    for right in ["］", "】", "〕"]:
+        value = value.replace(right, "]")
+    return value.replace("，", ",").replace("；", ",").replace("、", ",").replace(";", ",")
 
 
 def expand_citation_numbers(raw):
