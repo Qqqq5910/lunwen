@@ -12,12 +12,19 @@ from analyzer.reporter import build_report, write_reports, compact_summary
 from analyzer.security import generate_token, write_token
 
 
+def get_citation_rule(school_rules):
+    if school_rules and school_rules.get("citation_rule"):
+        return school_rules["citation_rule"]
+    return {"bracket_style": "[]", "range_separator": "~", "list_separator": ",", "superscript": True}
+
+
 def analyze_document_state(document, school_rules=None):
+    citation_rule = get_citation_rule(school_rules)
     paragraphs = read_docx_paragraphs(document)
     body_paragraphs, reference_paragraphs, reference_title = split_body_and_reference(paragraphs)
     references = extract_references_from_reference_paragraphs(reference_paragraphs)
     citations = find_citations(body_paragraphs)
-    citation_sequences = find_citation_sequences(body_paragraphs)
+    citation_sequences = find_citation_sequences(body_paragraphs, citation_rule)
     cited_numbers = get_cited_number_set(citations)
     reference_numbers = get_reference_number_set(references)
     issues = []
@@ -40,6 +47,7 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
     report_dir = Path(report_base_dir) / current_job_id
     write_token(report_dir, token)
     school_rules = parse_school_requirement_docx(school_requirement_path) if school_requirement_path else None
+    citation_rule = get_citation_rule(school_rules)
     document = load_document(source)
     before_state = analyze_document_state(document, school_rules)
     before_summary = compact_summary(before_state["body_paragraphs"], before_state["reference_paragraphs"], before_state["citations"], before_state["citation_sequences"], before_state["references"], before_state["issues"])
@@ -50,10 +58,10 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
         citation_range_fixed_count = 0
         school_format_fixed_count = 0
         if fix_citation_ranges:
-            citation_range_fixed_count = fix_citation_ranges_in_body(final_document, before_state["body_paragraphs"])
+            citation_range_fixed_count = fix_citation_ranges_in_body(final_document, before_state["body_paragraphs"], citation_rule)
             before_state = analyze_document_state(final_document, school_rules)
         if fix_superscript:
-            superscript_fixed_count = fix_superscript_in_body(final_document, before_state["body_paragraphs"])
+            superscript_fixed_count = fix_superscript_in_body(final_document, before_state["body_paragraphs"], citation_rule)
             before_state = analyze_document_state(final_document, school_rules)
         if fix_school and school_rules:
             school_format_fixed_count = fix_school_format(final_document, before_state["categorized"], school_rules.get("rules", {}))
