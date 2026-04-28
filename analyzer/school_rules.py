@@ -83,7 +83,7 @@ def infer_category(text):
         return "keywords"
     if "英文论文关键词" in text:
         return "english_keywords"
-    if "参考文献的正文" in text:
+    if "参考文献的正文" in text or "成果内容格式与参考文献格式要求相同" in text:
         return "reference"
     if "参考文献”四个字" in text or "参考文献\"四个字" in text:
         return "reference_title"
@@ -154,95 +154,37 @@ def extract_citation_rule(text):
     return rule
 
 
+def apply_default(rule, **kwargs):
+    for key, value in kwargs.items():
+        rule[key] = value
+    return rule
+
+
 def normalize_rule(category, rule):
     if category == "body":
-        rule.setdefault("font_east_asia", "宋体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 12)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.JUSTIFY)
-        rule.setdefault("line_spacing_pt", 20)
-        rule.setdefault("first_line_indent_cm", 0.74)
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=12, alignment_value=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing_pt=20, first_line_indent_cm=0.74, space_before_pt=0, space_after_pt=0, bold=False)
     if category == "abstract":
-        rule.setdefault("font_east_asia", "宋体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 12)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.JUSTIFY)
-        rule.setdefault("line_spacing_pt", 20)
-        rule.setdefault("first_line_indent_cm", 0.74)
-        rule.setdefault("space_before_pt", 0)
-        rule.setdefault("space_after_pt", 0)
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=12, alignment_value=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing_pt=20, first_line_indent_cm=0.74, space_before_pt=0, space_after_pt=0, bold=False)
     if category == "english_abstract":
-        rule.setdefault("font_east_asia", "Times New Roman")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 12)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.JUSTIFY)
-        rule.setdefault("line_spacing_pt", 20)
-        rule.setdefault("first_line_indent_cm", 0.74)
-        rule.setdefault("space_before_pt", 0)
-        rule.setdefault("space_after_pt", 0)
+        return apply_default(rule, font_east_asia="Times New Roman", font_latin="Times New Roman", size_pt=12, alignment_value=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing_pt=20, first_line_indent_cm=0.74, space_before_pt=0, space_after_pt=0, bold=False)
     if category in {"heading1", "abstract_title", "toc_title", "reference_title"}:
-        rule.setdefault("font_east_asia", "黑体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 18)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.CENTER)
-        rule.setdefault("space_before_pt", 24)
-        rule.setdefault("space_after_pt", 18)
-        rule.setdefault("line_spacing_value", 1.0)
+        return apply_default(rule, font_east_asia="黑体", font_latin="Times New Roman", size_pt=18, alignment_value=WD_ALIGN_PARAGRAPH.CENTER, space_before_pt=24, space_after_pt=18, line_spacing_value=1.0)
     if category == "english_abstract_title":
-        rule.setdefault("font_east_asia", "Times New Roman")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 18)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.CENTER)
-        rule.setdefault("space_before_pt", 24)
-        rule.setdefault("space_after_pt", 18)
-        rule.setdefault("line_spacing_value", 1.0)
+        return apply_default(rule, font_east_asia="Times New Roman", font_latin="Times New Roman", size_pt=18, alignment_value=WD_ALIGN_PARAGRAPH.CENTER, space_before_pt=24, space_after_pt=18, line_spacing_value=1.0)
     if category == "heading2":
-        rule.setdefault("font_east_asia", "宋体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 14)
-        rule.setdefault("bold", True)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.LEFT)
-        rule.setdefault("line_spacing_pt", 20)
-        rule.setdefault("space_before_pt", 24)
-        rule.setdefault("space_after_pt", 6)
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=14, bold=True, alignment_value=WD_ALIGN_PARAGRAPH.LEFT, line_spacing_pt=20, space_before_pt=24, space_after_pt=6)
     if category == "heading3":
-        rule.setdefault("font_east_asia", "宋体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 12)
-        rule.setdefault("bold", True)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.LEFT)
-        rule.setdefault("line_spacing_pt", 20)
-        rule.setdefault("space_before_pt", 12)
-        rule.setdefault("space_after_pt", 6)
-    if category in {"figure_caption", "table_caption"}:
-        rule.setdefault("font_east_asia", "宋体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 12)
-        rule.setdefault("alignment_value", WD_ALIGN_PARAGRAPH.CENTER)
-        rule.setdefault("line_spacing_value", 1.0)
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=12, bold=True, alignment_value=WD_ALIGN_PARAGRAPH.LEFT, line_spacing_pt=20, space_before_pt=12, space_after_pt=6)
     if category == "figure_caption":
-        rule.setdefault("space_before_pt", 6)
-        rule.setdefault("space_after_pt", 12)
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=12, alignment_value=WD_ALIGN_PARAGRAPH.CENTER, line_spacing_value=1.0, space_before_pt=6, space_after_pt=12)
     if category == "table_caption":
-        rule.setdefault("space_before_pt", 12)
-        rule.setdefault("space_after_pt", 6)
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=12, alignment_value=WD_ALIGN_PARAGRAPH.CENTER, line_spacing_value=1.0, space_before_pt=12, space_after_pt=6)
     if category == "reference":
-        rule.setdefault("font_east_asia", "宋体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 12)
-        rule.setdefault("line_spacing_pt", 16)
-        rule.setdefault("space_before_pt", 3)
-        rule.setdefault("space_after_pt", 0)
-    if category in {"keywords"}:
-        rule.setdefault("font_east_asia", "宋体")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 14)
-        rule.setdefault("bold", True)
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=12, alignment_value=WD_ALIGN_PARAGRAPH.LEFT, line_spacing_pt=16, space_before_pt=3, space_after_pt=0, bold=False)
+    if category == "keywords":
+        return apply_default(rule, font_east_asia="宋体", font_latin="Times New Roman", size_pt=14, alignment_value=WD_ALIGN_PARAGRAPH.LEFT, line_spacing_pt=20, space_before_pt=0, space_after_pt=0, bold=True)
     if category == "english_keywords":
-        rule.setdefault("font_east_asia", "Times New Roman")
-        rule.setdefault("font_latin", "Times New Roman")
-        rule.setdefault("size_pt", 14)
-        rule.setdefault("bold", True)
+        return apply_default(rule, font_east_asia="Times New Roman", font_latin="Times New Roman", size_pt=14, alignment_value=WD_ALIGN_PARAGRAPH.LEFT, line_spacing_pt=20, space_before_pt=0, space_after_pt=0, bold=True)
     return rule
 
 
@@ -299,18 +241,22 @@ def parse_school_requirement_docx(file_path):
 
 def _is_heading_style(style_name, level):
     if level == 1:
-        return "Heading 1" in style_name or "标题 1" in style_name
+        return "Heading 1" in style_name or "标题 1" in style_name or style_name in {"1", "2"}
     if level == 2:
-        return "Heading 2" in style_name or "标题 2" in style_name
+        return "Heading 2" in style_name or "标题 2" in style_name or style_name in {"3"}
     if level == 3:
-        return "Heading 3" in style_name or "标题 3" in style_name
+        return "Heading 3" in style_name or "标题 3" in style_name or style_name in {"4"}
     return False
 
 
 def _is_chapter_heading(text, style_name):
     if _is_heading_style(style_name, 1):
         return len(text) <= 80
-    return bool(re.match(r"^第[一二三四五六七八九十百]+章\s+\S+", text)) and len(text) <= 80
+    if re.match(r"^第[一二三四五六七八九十百]+章", text) and len(text) <= 80:
+        return True
+    if text in {"绪论", "总结与展望", "致谢", "致  谢"}:
+        return True
+    return False
 
 
 def paragraph_category(item, in_reference=False, state=None):
@@ -321,6 +267,8 @@ def paragraph_category(item, in_reference=False, state=None):
     style_name = paragraph.style.name if paragraph.style else ""
     if in_reference:
         return "reference"
+    if text in {"参考文献", "参 考 文 献"}:
+        return "reference_title"
     if text in {"摘  要", "摘要", "中文摘要"}:
         state["abstract_mode"] = "abstract"
         state["toc_started"] = False
