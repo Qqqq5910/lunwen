@@ -61,7 +61,7 @@ def marker_numbers_from_sequence(text):
 def compact_numbers(numbers):
     ordered = sorted(set(numbers))
     if not ordered:
-        return ""
+        return []
     groups = []
     start = ordered[0]
     prev = ordered[0]
@@ -73,18 +73,42 @@ def compact_numbers(numbers):
             start = number
             prev = number
     groups.append((start, prev))
+    return groups
+
+
+def bracket_pair(style):
+    if style == "【】":
+        return "【", "】"
+    if style == "〔〕":
+        return "〔", "〕"
+    if style == "［］":
+        return "［", "］"
+    return "[", "]"
+
+
+def format_numbers(numbers, citation_rule=None):
+    rule = citation_rule or {}
+    range_sep = rule.get("range_separator", "~")
+    list_sep = rule.get("list_separator", ",")
+    left, right = bracket_pair(rule.get("bracket_style", "[]"))
     parts = []
-    for start, end in groups:
+    for start, end in compact_numbers(numbers):
         if start == end:
             parts.append(str(start))
         else:
-            parts.append(f"{start}~{end}")
-    return ",".join(parts)
+            parts.append(f"{start}{range_sep}{end}")
+    return f"{left}{list_sep.join(parts)}{right}"
 
 
-def compact_sequence_text(text):
+def compact_sequence_text(text, citation_rule=None):
     numbers = marker_numbers_from_sequence(text)
-    body = compact_numbers(numbers)
-    if not body:
+    if not numbers:
         return text
-    return f"[{body}]"
+    return format_numbers(numbers, citation_rule)
+
+
+def normalize_single_marker_text(text, citation_rule=None):
+    numbers = expand_citation_numbers(text)
+    if not numbers:
+        return text
+    return format_numbers(numbers, citation_rule)
