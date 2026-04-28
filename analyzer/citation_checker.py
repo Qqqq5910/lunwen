@@ -46,14 +46,14 @@ def find_citations(paragraphs):
     return citations
 
 
-def find_citation_sequences(paragraphs):
+def find_citation_sequences(paragraphs,citation_rule=None):
     sequences=[]
     for item in paragraphs:
         paragraph=item["paragraph"]
         text=paragraph.text
         for match in CITATION_SEQUENCE_PATTERN.finditer(text):
             raw=match.group(0)
-            compacted=compact_sequence_text(raw)
+            compacted=compact_sequence_text(raw,citation_rule)
             if compacted!=raw:
                 sequences.append({"paragraph_index":item["index"],"raw":raw,"compacted":compacted,"text":text.strip(),"start":match.start(),"end":match.end()})
     return sequences
