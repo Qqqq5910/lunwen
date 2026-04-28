@@ -1,7 +1,7 @@
 import re
 
-
-MARKER = r"(?:\[\s*\d+(?:\s*[-–—~～,，]\s*\d+)*\s*\]|［\s*\d+(?:\s*[-–—~～,，]\s*\d+)*\s*］)"
+NUMBER_LIST = r"\d+(?:\s*[-–—~～,，;；、]\s*\d+)*"
+MARKER = r"(?:\[\s*" + NUMBER_LIST + r"\s*\]|［\s*" + NUMBER_LIST + r"\s*］|【\s*" + NUMBER_LIST + r"\s*】|〔\s*" + NUMBER_LIST + r"\s*〕)"
 CITATION_PATTERN = re.compile(r"(" + MARKER + r")")
 SEPARATOR = r"(?:\s*(?:、|,|，|;|；)\s*|\s*)"
 CITATION_SEQUENCE_PATTERN = re.compile(r"(" + MARKER + r"(?:" + SEPARATOR + MARKER + r")+)")
@@ -9,7 +9,12 @@ SINGLE_MARKER_PATTERN = re.compile(MARKER)
 
 
 def normalize_marker(raw):
-    return raw.replace("［", "[").replace("］", "]").replace("，", ",")
+    value = raw.strip()
+    for left in ["［", "【", "〔"]:
+        value = value.replace(left, "[")
+    for right in ["］", "】", "〕"]:
+        value = value.replace(right, "]")
+    return value.replace("，", ",").replace("；", ",").replace("、", ",").replace(";", ",")
 
 
 def expand_citation_numbers(raw):
@@ -25,15 +30,11 @@ def expand_citation_numbers(raw):
             if left.isdigit() and right.isdigit():
                 start = int(left)
                 end = int(right)
-                if start < 1 or end < 1:
-                    continue
-                if start <= end:
+                if start <= end and start > 0:
                     numbers.extend(range(start, end + 1))
-                else:
-                    numbers.extend([start, end])
         elif part.isdigit():
             number = int(part)
-            if number >= 1:
+            if number > 0:
                 numbers.append(number)
     return numbers
 
@@ -45,10 +46,10 @@ def marker_numbers_from_sequence(text):
     return numbers
 
 
-def compact_numbers(numbers):
+def compact_ranges(numbers):
     ordered = sorted(set(numbers))
     if not ordered:
-        return ""
+        return []
     groups = []
     start = ordered[0]
     prev = ordered[0]
@@ -60,18 +61,42 @@ def compact_numbers(numbers):
             start = number
             prev = number
     groups.append((start, prev))
+    return groups
+
+
+def bracket_pair(style):
+    if style == "【】":
+        return "【", "】"
+    if style == "〔〕":
+        return "〔", "〕"
+    if style == "［］":
+        return "［", "］"
+    return "[", "]"
+
+
+def format_numbers(numbers, citation_rule=None):
+    rule = citation_rule or {}
+    left, right = bracket_pair(rule.get("bracket_style", "[]"))
+    range_sep = rule.get("range_separator", "~")
+    list_sep = rule.get("list_separator", ",")
     parts = []
-    for start, end in groups:
+    for start, end in compact_ranges(numbers):
         if start == end:
             parts.append(str(start))
         else:
-            parts.append(f"{start}~{end}")
-    return ",".join(parts)
+            parts.append(f"{start}{range_sep}{end}")
+    return f"{left}{list_sep.join(parts)}{right}"
 
 
-def compact_sequence_text(text):
+def compact_sequence_text(text, citation_rule=None):
     numbers = marker_numbers_from_sequence(text)
-    body = compact_numbers(numbers)
-    if not body:
+    if not numbers:
         return text
-    return f"[{body}]"
+    return format_numbers(numbers, citation_rule)
+
+
+def normalize_single_marker_text(text, citation_rule=None):
+    numbers = expand_citation_numbers(text)
+    if not numbers:
+        return text
+    return format_numbers(numbers, citation_rule)
