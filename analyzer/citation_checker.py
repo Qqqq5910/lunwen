@@ -1,6 +1,6 @@
 from models.issue import Issue
 from analyzer.labels import issue_label
-from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, normalize_marker, expand_citation_numbers, compact_sequence_text
+from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, normalize_marker, expand_citation_numbers, compact_sequence_text, normalize_single_marker_text
 
 
 def get_run_spans(paragraph):
@@ -56,14 +56,14 @@ def find_citations(paragraphs):
     return citations
 
 
-def find_citation_sequences(paragraphs):
+def find_citation_sequences(paragraphs, citation_rule=None):
     sequences=[]
     for item in paragraphs:
         paragraph=item["paragraph"]
         text=paragraph.text
         for match in CITATION_SEQUENCE_PATTERN.finditer(text):
             raw=match.group(0)
-            compacted=compact_sequence_text(raw)
+            compacted=compact_sequence_text(raw, citation_rule)
             if compacted!=raw:
                 sequences.append({"paragraph_index":item["index"],"raw":raw,"compacted":compacted,"text":text.strip(),"start":match.start(),"end":match.end()})
     return sequences
@@ -76,19 +76,22 @@ def get_cited_number_set(citations):
     return result
 
 
-def check_citation_format(citations):
+def check_citation_format(citations, citation_rule=None):
     issues=[]
+    rule=citation_rule or {}
+    require_superscript=rule.get("superscript", True)
     for item in citations:
         raw=item["raw"]
-        if not item["is_superscript"]:
+        expected=normalize_single_marker_text(raw, rule)
+        if require_superscript and not item["is_superscript"]:
             t="citation_not_superscript"
-            issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"正文引用 {raw} 未设置为上标。",suggestion=f"建议将正文引用 {raw} 设置为上标格式。",auto_fixable=True))
-        if "［" in raw or "］" in raw:
-            t="citation_fullwidth_bracket"
-            issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"正文引用 {raw} 使用了全角方括号。",suggestion=f"建议改为半角方括号格式，例如 {normalize_marker(raw)}。",auto_fixable=True))
-        if ", " in raw or " ," in raw or "，" in raw:
-            t="citation_spacing_or_comma"
-            issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"正文引用 {raw} 中存在空格或中文逗号。",suggestion="建议统一为英文逗号且无空格格式。",auto_fixable=True))
+            issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"正文引用 {raw} 未设置为上标。",suggestion=f"学校要求引用为上标，建议将 {raw} 设置为上标格式。",auto_fixable=True,meta={"expected":expected,"citation_rule":rule}))
+        if not require_superscript and item["is_superscript"]:
+            t="citation_should_not_superscript"
+            issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"正文引用 {raw} 不应设置为上标。",suggestion=f"学校要求引用不上标，建议改为 {expected}。",auto_fixable=True,meta={"expected":expected,"citation_rule":rule}))
+        if expected != raw:
+            t="citation_style_mismatch"
+            issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"正文引用 {raw} 与学校要求格式不一致。",suggestion=f"建议按学校要求改为 {expected}。",auto_fixable=True,meta={"expected":expected,"citation_rule":rule}))
     return issues
 
 
@@ -96,5 +99,5 @@ def check_citation_sequences(sequences):
     issues=[]
     for item in sequences:
         t="citation_sequence_not_compacted"
-        issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"连续引用 {item['raw']} 可以合并为 {item['compacted']}。",suggestion=f"建议将连续引用统一为 {item['compacted']}。",auto_fixable=True))
+        issues.append(Issue(type=t,label=issue_label(t),group="auto",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"连续引用 {item['raw']} 可以合并为 {item['compacted']}。",suggestion=f"建议将连续引用统一为 {item['compacted']}。",auto_fixable=True,meta={"expected":item["compacted"]}))
     return issues
