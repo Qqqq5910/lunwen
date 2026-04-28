@@ -6,7 +6,19 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from analyzer.pipeline import analyze_docx
 from analyzer.security import cleanup_old_files, max_upload_bytes, read_token
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+import analyzer.school_rules as school_rules_module
 import os
+
+_original_normalize_rule = school_rules_module.normalize_rule
+
+def normalize_rule_with_reference_justify(category, rule):
+    result = _original_normalize_rule(category, rule)
+    if category == "reference":
+        result["alignment_value"] = WD_ALIGN_PARAGRAPH.JUSTIFY
+    return result
+
+school_rules_module.normalize_rule = normalize_rule_with_reference_justify
 
 app = FastAPI(title="论文格式终检助手 final")
 BASE_DIR = Path(__file__).parent
