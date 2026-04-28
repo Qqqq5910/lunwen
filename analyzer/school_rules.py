@@ -59,16 +59,59 @@ def extract_first_line_indent(text):
             return "首行缩进2字符",0.74
     return None,None
 
+def extract_citation_rule_from_text(text):
+    rule={}
+    if not any(k in text for k in ["引用","引文","文献标注","参考文献标注","正文标注","顺序编码"]):
+        return rule
+    if "【" in text or "】" in text or "【1】" in text:
+        rule["bracket_style"]="【】"
+    elif "〔" in text or "〕" in text or "〔1〕" in text:
+        rule["bracket_style"]="〔〕"
+    elif "［" in text or "］" in text or "［1］" in text:
+        rule["bracket_style"]="［］"
+    elif "[" in text or "]" in text or "[1]" in text:
+        rule["bracket_style"]="[]"
+    if "1~3" in text or "1～3" in text or "~" in text or "～" in text:
+        rule["range_separator"]="~"
+    elif "1-3" in text or "1–3" in text or "1—3" in text:
+        rule["range_separator"]="-"
+    if "1，2" in text or "中文逗号" in text:
+        rule["list_separator"]="，"
+    elif "1、2" in text or "顿号" in text:
+        rule["list_separator"]="、"
+    elif "1;2" in text or "1；2" in text or "分号" in text:
+        rule["list_separator"]="；"
+    elif "1,2" in text or "英文逗号" in text or ",[" in text:
+        rule["list_separator']=','"
+    if "不上标" in text or "非上标" in text or "不以上标" in text or "不采用上标" in text:
+        rule["superscript"]=False
+    elif "上标" in text or "角标" in text:
+        rule["superscript"]=True
+    return rule
+
+def normalize_citation_rule(rule):
+    result={"bracket_style":"[]","range_separator":"~","list_separator":",","superscript":True}
+    result.update(rule or {})
+    if result.get("list_separator")=="；":
+        result["list_separator"]=";"
+    if result.get("list_separator")=="，":
+        result["list_separator"]="," if result.get("prefer_english_comma") else "，"
+    return result
+
 def parse_school_requirement_docx(file_path):
     document=load_document(file_path)
     paragraphs=read_docx_paragraphs(document, include_tables=True)
     rules={}
     raw_lines=[]
+    citation_rule={}
     for para in paragraphs:
         text=clean_text(para["text"])
         if not text:
             continue
         raw_lines.append(text)
+        extracted_citation_rule=extract_citation_rule_from_text(text)
+        if extracted_citation_rule:
+            citation_rule.update(extracted_citation_rule)
         category=infer_category(text)
         if not category:
             continue
@@ -94,7 +137,7 @@ def parse_school_requirement_docx(file_path):
             rule["first_line_indent_cm"]=indent_value
         rule["source_text"]=text
         rules[category]=rule
-    return {"rules":rules,"raw_text_preview":raw_lines[:80],"rule_count":len(rules)}
+    return {"rules":rules,"citation_rule":normalize_citation_rule(citation_rule),"raw_text_preview":raw_lines[:80],"rule_count":len(rules)}
 
 def paragraph_category(item,in_reference=False):
     text=item["text"].strip()
