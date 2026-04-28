@@ -8,37 +8,55 @@ TABLE_PATTERN = re.compile(r"表\s*(\d+)[-.－.](\d+)")
 EQUATION_PATTERN = re.compile(r"(?:公式|式)\s*[（(]\s*(\d+)[-.－.](\d+)\s*[）)]")
 HEADING_PATTERN = re.compile(r"^\s*(\d+(?:\.\d+){1,3})\s+(.+)$")
 
-def extract_numbered_items(paragraphs):
+
+def is_probable_caption(text, kind, match):
+    value = text.strip()
+    if kind == "figure":
+        return match.start() == 0 and value.startswith("图")
+    if kind == "table":
+        return match.start() == 0 and value.startswith("表")
+    if kind == "equation":
+        before = value[:match.start()].strip()
+        return before == "" or before in {"其中", "式中"}
+    return False
+
+
+def extract_numbered_items(paragraphs, captions_only=False):
     items=[]
     patterns=[("figure",FIGURE_PATTERN),("table",TABLE_PATTERN),("equation",EQUATION_PATTERN)]
     for para in paragraphs:
         text=para["text"]
         for kind,pattern in patterns:
             for m in pattern.finditer(text):
+                if captions_only and not is_probable_caption(text,kind,m):
+                    continue
                 items.append({"kind":kind,"chapter":int(m.group(1)),"index":int(m.group(2)),"raw":m.group(0),"paragraph_index":para["index"],"text":text})
     return items
 
+
 def check_numbered_items(paragraphs):
     issues=[]
-    items=extract_numbered_items(paragraphs)
+    items=extract_numbered_items(paragraphs,captions_only=True)
     grouped=defaultdict(list)
     name_map={"figure":"图","table":"表","equation":"公式"}
     for item in items:
         grouped[(item["kind"],item["chapter"])].append(item)
     for (kind,chapter),group in grouped.items():
-        indexes=[item["index"] for item in group]
-        seen=set()
+        seen={}
         for item in group:
-            if item["index"] in seen:
+            number=item["index"]
+            if number in seen:
                 t=f"{kind}_number_duplicate"
-                issues.append(Issue(type=t,label=issue_label(t),group="manual",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"{name_map[kind]} {chapter}-{item['index']} 重复出现。",suggestion="请检查编号是否重复。",auto_fixable=False))
-            seen.add(item["index"])
-        unique=sorted(set(indexes))
+                first=seen[number]
+                issues.append(Issue(type=t,label=issue_label(t),group="manual",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"{name_map[kind]} {chapter}-{number} 疑似重复出现。",suggestion=f"已仅按图题/表题/公式题识别，不再把正文中的“如{name_map[kind]} {chapter}-{number}所示”当作重复。请同时核对首次出现位置：段落 {first['paragraph_index']}。",auto_fixable=False))
+            else:
+                seen[number]=item
+        unique=sorted(seen.keys())
         if unique:
             expected=set(range(unique[0],unique[-1]+1))
             for miss in sorted(expected-set(unique)):
                 t=f"{kind}_number_jump"
-                issues.append(Issue(type=t,label=issue_label(t),group="manual",problem=f"{name_map[kind]} {chapter}-{miss} 疑似缺失，编号存在跳号。",suggestion="请检查图、表或公式编号是否连续。",auto_fixable=False))
+                issues.append(Issue(type=t,label=issue_label(t),group="manual",problem=f"{name_map[kind]} {chapter}-{miss} 疑似缺失，编号存在跳号。",suggestion="该检查只统计疑似图题、表题或公式题，不统计正文引用。请核对是否确实缺少对应编号。",auto_fixable=False))
     for para in paragraphs:
         text=para["text"]
         if "如下图" in text or "见下图" in text:
@@ -49,6 +67,7 @@ def check_numbered_items(paragraphs):
             issues.append(Issue(type=t,label=issue_label(t),group="reminder",paragraph_index=para["index"],text=text,problem="正文中出现“如下表”或“见下表”，但可能缺少具体表编号。",suggestion="建议改为“如表 x-x 所示”。",auto_fixable=False))
     return issues
 
+
 def find_headings(paragraphs):
     headings=[]
     for para in paragraphs:
@@ -57,6 +76,7 @@ def find_headings(paragraphs):
         if match:
             headings.append({"number":match.group(1),"title":match.group(2),"level":match.group(1).count(".")+1,"paragraph_index":para["index"],"text":text})
     return headings
+
 
 def check_headings(paragraphs):
     issues=[]
