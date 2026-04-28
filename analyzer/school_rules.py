@@ -1,22 +1,21 @@
 import re
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt
 from docx.oxml.ns import qn
 from models.issue import Issue
 from analyzer.labels import issue_label
 from analyzer.docx_reader import load_document, read_docx_paragraphs
 
-SIZE_MAP={"初号":42,"小初":36,"一号":26,"小一":24,"二号":22,"小二":18,"三号":16,"小三":15,"四号":14,"小四":12,"五号":10.5,"小五":9,"六号":7.5,"小六":6.5}
-FONT_NAMES=["Times New Roman","Arial","Cambria","宋体","黑体","楷体","仿宋","微软雅黑"]
-CATEGORY_KEYWORDS={"body":["正文","论文正文"],"heading1":["一级标题","章标题","章名"],"heading2":["二级标题","节标题"],"heading3":["三级标题"],"abstract":["中文摘要","摘要"],"english_abstract":["英文摘要","ABSTRACT"],"keywords":["关键词","Key Words","Keywords"],"reference":["参考文献"],"figure_caption":["图题","图名","图注","图标题"],"table_caption":["表题","表名","表标题"]}
-ALIGNMENT_MAP={"居中":WD_ALIGN_PARAGRAPH.CENTER,"左对齐":WD_ALIGN_PARAGRAPH.LEFT,"右对齐":WD_ALIGN_PARAGRAPH.RIGHT,"两端对齐":WD_ALIGN_PARAGRAPH.JUSTIFY}
-DEFAULT_CITATION_RULE={"bracket_style":"[]","range_separator":"~","list_separator":",","superscript":True}
+SIZE_MAP = {"初号": 42, "小初": 36, "一号": 26, "小一": 24, "二号": 22, "小二": 18, "三号": 16, "小三": 15, "四号": 14, "小四": 12, "五号": 10.5, "小五": 9, "六号": 7.5, "小六": 6.5}
+FONT_NAMES = ["Times New Roman", "Arial", "Cambria", "宋体", "黑体", "楷体", "仿宋", "微软雅黑"]
+ALIGNMENT_MAP = {"居中": WD_ALIGN_PARAGRAPH.CENTER, "左对齐": WD_ALIGN_PARAGRAPH.LEFT, "右对齐": WD_ALIGN_PARAGRAPH.RIGHT, "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY}
+CATEGORY_KEYWORDS = {"body": ["正文", "论文正文"], "heading1": ["一级标题", "章标题", "章名"], "heading2": ["二级标题", "节标题"], "heading3": ["三级标题"], "abstract": ["中文摘要", "摘要"], "english_abstract": ["英文摘要", "ABSTRACT"], "keywords": ["关键词", "Key Words", "Keywords"], "reference": ["参考文献"], "figure_caption": ["图题", "图名", "图注", "图标题"], "table_caption": ["表题", "表名", "表标题"]}
+DEFAULT_CITATION_RULE = {"bracket_style": "[]", "range_separator": "~", "list_separator": ",", "superscript": True}
 
 def clean_text(text):
-    return re.sub(r"\s+"," ",text.strip())
+    return re.sub(r"\s+", " ", text.strip())
 
 def infer_category(text):
-    for category,words in CATEGORY_KEYWORDS.items():
+    for category, words in CATEGORY_KEYWORDS.items():
         if any(word in text for word in words):
             return category
     return None
@@ -28,219 +27,187 @@ def extract_font(text):
     return None
 
 def extract_size(text):
-    for name,pt in SIZE_MAP.items():
+    for name, pt in SIZE_MAP.items():
         if name in text:
-            return name,pt
-    m=re.search(r"(\d+(?:\.\d+)?)\s*磅",text)
+            return name, pt
+    m = re.search(r"(\d+(?:\.\d+)?)\s*磅", text)
     if m:
-        return f"{m.group(1)}磅",float(m.group(1))
-    return None,None
+        return f"{m.group(1)}磅", float(m.group(1))
+    return None, None
 
 def extract_alignment(text):
-    for key,value in ALIGNMENT_MAP.items():
+    for key, value in ALIGNMENT_MAP.items():
         if key in text:
-            return key,value
-    return None,None
-
-def extract_line_spacing(text):
-    m=re.search(r"(\d+(?:\.\d+)?)\s*倍行距",text)
-    if m:
-        return f"{m.group(1)}倍行距",float(m.group(1))
-    m=re.search(r"固定值\s*(\d+(?:\.\d+)?)\s*磅",text)
-    if m:
-        return f"固定值{m.group(1)}磅",Pt(float(m.group(1)))
-    return None,None
-
-def extract_first_line_indent(text):
-    if "首行缩进" in text:
-        m=re.search(r"首行缩进\s*(\d+(?:\.\d+)?)\s*(字符|字)",text)
-        if m:
-            return f"首行缩进{m.group(1)}字符",float(m.group(1))*0.37
-        if "2字符" in text or "2 字符" in text or "两字符" in text:
-            return "首行缩进2字符",0.74
-    return None,None
+            return key, value
+    return None, None
 
 def extract_citation_rule(text):
-    rule={}
-    if not any(k in text for k in ["引用","引文","文献标注","参考文献标注","正文标注","顺序编码"]):
+    rule = {}
+    if not any(k in text for k in ["引用", "引文", "文献标注", "参考文献标注", "正文标注", "顺序编码"]):
         return rule
     if "【" in text or "】" in text:
-        rule["bracket_style"]="【】"
+        rule["bracket_style"] = "【】"
     elif "〔" in text or "〕" in text:
-        rule["bracket_style"]="〔〕"
+        rule["bracket_style"] = "〔〕"
     elif "［" in text or "］" in text:
-        rule["bracket_style"]="［］"
+        rule["bracket_style"] = "［］"
     elif "[" in text or "]" in text:
-        rule["bracket_style"]="[]"
+        rule["bracket_style"] = "[]"
     if "1~3" in text or "1～3" in text or "~" in text or "～" in text:
-        rule["range_separator"]="~"
+        rule["range_separator"] = "~"
     elif "1-3" in text or "1–3" in text or "1—3" in text:
-        rule["range_separator"]="-"
+        rule["range_separator"] = "-"
     if "1，2" in text or "中文逗号" in text:
-        rule["list_separator"]="，"
+        rule["list_separator"] = "，"
     elif "1、2" in text or "顿号" in text:
-        rule["list_separator"]="、"
+        rule["list_separator"] = "、"
     elif "1;2" in text or "1；2" in text or "分号" in text:
-        rule["list_separator"]=";"
+        rule["list_separator"] = ";"
     elif "1,2" in text or "英文逗号" in text:
-        rule["list_separator']=','".replace("'","")
+        rule["list_separator"] = ","
     if "不上标" in text or "非上标" in text or "不采用上标" in text:
-        rule["superscript"]=False
+        rule["superscript"] = False
     elif "上标" in text or "角标" in text:
-        rule["superscript"]=True
-    if "list_separator']=" in rule:
-        rule["list_separator"]=rule.pop("list_separator']=")
+        rule["superscript"] = True
     return rule
 
 def parse_school_requirement_docx(file_path):
-    document=load_document(file_path)
-    paragraphs=read_docx_paragraphs(document,include_tables=True)
-    rules={}
-    citation_rule={}
-    raw_lines=[]
+    document = load_document(file_path)
+    paragraphs = read_docx_paragraphs(document)
+    rules = {}
+    citation_rule = {}
+    raw_lines = []
     for para in paragraphs:
-        text=clean_text(para["text"])
+        text = clean_text(para["text"])
         if not text:
             continue
         raw_lines.append(text)
-        c_rule=extract_citation_rule(text)
-        if c_rule:
-            citation_rule.update(c_rule)
-        category=infer_category(text)
+        found = extract_citation_rule(text)
+        if found:
+            citation_rule.update(found)
+        category = infer_category(text)
         if not category:
             continue
-        rule=rules.get(category,{})
-        font=extract_font(text)
-        size_name,size_pt=extract_size(text)
-        align_name,align_value=extract_alignment(text)
-        line_name,line_value=extract_line_spacing(text)
-        indent_name,indent_value=extract_first_line_indent(text)
+        rule = rules.get(category, {})
+        font = extract_font(text)
+        size_name, size_pt = extract_size(text)
+        align_name, align_value = extract_alignment(text)
         if font:
-            rule["font"]=font
+            rule["font"] = font
         if size_pt:
-            rule["size_name"]=size_name
-            rule["size_pt"]=size_pt
+            rule["size_name"] = size_name
+            rule["size_pt"] = size_pt
         if align_name:
-            rule["alignment_name"]=align_name
-            rule["alignment_value"]=align_value
-        if line_name:
-            rule["line_spacing_name"]=line_name
-            rule["line_spacing_value"]=line_value
-        if indent_name:
-            rule["first_line_indent_name"]=indent_name
-            rule["first_line_indent_cm"]=indent_value
-        rule["source_text"]=text
-        rules[category]=rule
-    merged_citation_rule=DEFAULT_CITATION_RULE.copy()
-    merged_citation_rule.update(citation_rule)
-    return {"rules":rules,"citation_rule":merged_citation_rule,"raw_text_preview":raw_lines[:80],"rule_count":len(rules)}
+            rule["alignment_name"] = align_name
+            rule["alignment_value"] = align_value
+        rule["source_text"] = text
+        rules[category] = rule
+    merged = DEFAULT_CITATION_RULE.copy()
+    merged.update(citation_rule)
+    return {"rules": rules, "citation_rule": merged, "raw_text_preview": raw_lines[:80], "rule_count": len(rules)}
 
-def paragraph_category(item,in_reference=False):
-    text=item["text"].strip()
-    style_name=item["paragraph"].style.name if item["paragraph"].style else ""
+def paragraph_category(item, in_reference=False):
+    text = item["text"].strip()
+    style_name = item["paragraph"].style.name if item["paragraph"].style else ""
     if in_reference:
         return "reference"
-    if text in {"摘  要","摘要"} or "摘要" in style_name:
+    if text in {"摘  要", "摘要"} or "摘要" in style_name:
         return "abstract"
-    if text.upper()=="ABSTRACT" or text.startswith("ABSTRACT"):
+    if text.upper() == "ABSTRACT" or text.startswith("ABSTRACT"):
         return "english_abstract"
     if text.startswith("关键词") or text.startswith("Key Words") or text.startswith("Keywords"):
         return "keywords"
-    if re.match(r"^第[一二三四五六七八九十]+章",text) or "Heading 1" in style_name or "标题 1" in style_name:
+    if re.match(r"^第[一二三四五六七八九十]+章", text) or "Heading 1" in style_name or "标题 1" in style_name:
         return "heading1"
-    if re.match(r"^\d+\.\d+\s+",text) or "Heading 2" in style_name or "标题 2" in style_name:
+    if re.match(r"^\d+\.\d+\s+", text) or "Heading 2" in style_name or "标题 2" in style_name:
         return "heading2"
-    if re.match(r"^\d+\.\d+\.\d+\s+",text) or "Heading 3" in style_name or "标题 3" in style_name:
+    if re.match(r"^\d+\.\d+\.\d+\s+", text) or "Heading 3" in style_name or "标题 3" in style_name:
         return "heading3"
-    if re.match(r"^图\s*\d+",text):
+    if re.match(r"^图\s*\d+", text):
         return "figure_caption"
-    if re.match(r"^表\s*\d+",text):
+    if re.match(r"^表\s*\d+", text):
         return "table_caption"
-    if len(text)>20:
+    if len(text) > 20:
         return "body"
     return None
 
-def categorize_paragraphs(body_paragraphs,reference_paragraphs):
-    result=[]
+def categorize_paragraphs(body_paragraphs, reference_paragraphs):
+    result = []
     for item in body_paragraphs:
-        category=paragraph_category(item,False)
+        category = paragraph_category(item, False)
         if category:
-            result.append({**item,"category":category})
+            result.append({**item, "category": category})
     for item in reference_paragraphs:
-        category=paragraph_category(item,True)
+        category = paragraph_category(item, True)
         if category:
-            result.append({**item,"category":category})
+            result.append({**item, "category": category})
     return result
 
 def get_run_font_name(run):
-    rpr=run._element.rPr
+    rpr = run._element.rPr
     if rpr is not None and rpr.rFonts is not None:
-        for attr in [qn("w:eastAsia"),qn("w:ascii"),qn("w:hAnsi")]:
-            value=rpr.rFonts.get(attr)
+        for attr in [qn("w:eastAsia"), qn("w:ascii"), qn("w:hAnsi")]:
+            value = rpr.rFonts.get(attr)
             if value:
                 return value
-    if run.font.name:
-        return run.font.name
-    return None
+    return run.font.name
 
 def get_paragraph_main_font(paragraph):
-    fonts=[]
+    fonts = []
     for run in paragraph.runs:
         if run.text.strip():
-            name=get_run_font_name(run)
+            name = get_run_font_name(run)
             if name:
                 fonts.append(name)
     if fonts:
-        return max(set(fonts),key=fonts.count)
-    style=paragraph.style
-    if style and style.font and style.font.name:
-        return style.font.name
+        return max(set(fonts), key=fonts.count)
+    if paragraph.style and paragraph.style.font and paragraph.style.font.name:
+        return paragraph.style.font.name
     return None
 
 def get_paragraph_main_size(paragraph):
-    sizes=[]
+    sizes = []
     for run in paragraph.runs:
         if run.text.strip() and run.font.size:
-            sizes.append(round(run.font.size.pt,1))
+            sizes.append(round(run.font.size.pt, 1))
     if sizes:
-        return max(set(sizes),key=sizes.count)
-    style=paragraph.style
-    if style and style.font and style.font.size:
-        return round(style.font.size.pt,1)
+        return max(set(sizes), key=sizes.count)
+    if paragraph.style and paragraph.style.font and paragraph.style.font.size:
+        return round(paragraph.style.font.size.pt, 1)
     return None
 
-def compare_float(a,b,tolerance=0.2):
+def compare_float(a, b, tolerance=0.2):
     if a is None or b is None:
         return True
-    return abs(float(a)-float(b))<=tolerance
+    return abs(float(a) - float(b)) <= tolerance
 
-def check_school_format(categorized_paragraphs,school_rules):
-    issues=[]
-    rules=school_rules.get("rules",{}) if school_rules else {}
+def check_school_format(categorized_paragraphs, school_rules):
+    issues = []
+    rules = school_rules.get("rules", {}) if school_rules else {}
     if not rules:
-        t="school_rule_not_extracted"
-        issues.append(Issue(type=t,label=issue_label(t),group="school",problem="未能从学校格式要求 Word 中抽取到足够规则。",suggestion="建议确认学校要求中是否包含“正文、标题、参考文献、字体、字号、行距”等明确文字。",auto_fixable=False))
+        t = "school_rule_not_extracted"
+        issues.append(Issue(type=t, label=issue_label(t), group="school", problem="未能从学校格式要求 Word 中抽取到足够规则。", suggestion="建议确认学校要求中是否包含正文、标题、参考文献、字体、字号等明确文字。", auto_fixable=False))
         return issues
     for item in categorized_paragraphs:
-        category=item["category"]
-        rule=rules.get(category)
+        category = item["category"]
+        rule = rules.get(category)
         if not rule:
             continue
-        paragraph=item["paragraph"]
-        text=item["text"]
+        paragraph = item["paragraph"]
+        text = item["text"]
         if rule.get("font"):
-            actual=get_paragraph_main_font(paragraph)
-            expected=rule["font"]
+            actual = get_paragraph_main_font(paragraph)
+            expected = rule["font"]
             if actual and expected not in actual:
-                t="school_font_mismatch"
-                issues.append(Issue(type=t,label=issue_label(t),group="school",paragraph_index=item["index"],text=text,problem=f"{category} 字体疑似为 {actual}，学校要求为 {expected}。",suggestion=f"建议将该段字体调整为 {expected}。",auto_fixable=True,meta={"category":category,"expected":expected,"actual":actual}))
+                t = "school_font_mismatch"
+                issues.append(Issue(type=t, label=issue_label(t), group="school", paragraph_index=item["index"], text=text, problem=f"{category} 字体疑似为 {actual}，学校要求为 {expected}。", suggestion=f"建议将该段字体调整为 {expected}。", auto_fixable=True, meta={"category": category, "expected": expected, "actual": actual}))
         if rule.get("size_pt"):
-            actual_size=get_paragraph_main_size(paragraph)
-            expected_size=rule["size_pt"]
-            if actual_size and not compare_float(actual_size,expected_size):
-                t="school_size_mismatch"
-                issues.append(Issue(type=t,label=issue_label(t),group="school",paragraph_index=item["index"],text=text,problem=f"{category} 字号疑似为 {actual_size} 磅，学校要求为 {rule.get('size_name',expected_size)}。",suggestion=f"建议将该段字号调整为 {rule.get('size_name',expected_size)}。",auto_fixable=True,meta={"category":category,"expected":expected_size,"actual":actual_size}))
-        if rule.get("alignment_value") is not None and paragraph.alignment is not None and paragraph.alignment!=rule["alignment_value"]:
-            t="school_alignment_mismatch"
-            issues.append(Issue(type=t,label=issue_label(t),group="school",paragraph_index=item["index"],text=text,problem=f"{category} 对齐方式与学校要求不一致。",suggestion=f"建议调整为 {rule.get('alignment_name')}。",auto_fixable=True,meta={"category":category}))
+            actual_size = get_paragraph_main_size(paragraph)
+            expected_size = rule["size_pt"]
+            if actual_size and not compare_float(actual_size, expected_size):
+                t = "school_size_mismatch"
+                issues.append(Issue(type=t, label=issue_label(t), group="school", paragraph_index=item["index"], text=text, problem=f"{category} 字号疑似为 {actual_size} 磅，学校要求为 {rule.get('size_name', expected_size)}。", suggestion=f"建议将该段字号调整为 {rule.get('size_name', expected_size)}。", auto_fixable=True, meta={"category": category, "expected": expected_size, "actual": actual_size}))
+        if rule.get("alignment_value") is not None and paragraph.alignment is not None and paragraph.alignment != rule["alignment_value"]:
+            t = "school_alignment_mismatch"
+            issues.append(Issue(type=t, label=issue_label(t), group="school", paragraph_index=item["index"], text=text, problem=f"{category} 对齐方式与学校要求不一致。", suggestion=f"建议调整为 {rule.get('alignment_name')}。", auto_fixable=True, meta={"category": category}))
     return issues
