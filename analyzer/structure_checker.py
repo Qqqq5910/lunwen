@@ -3,18 +3,32 @@ from collections import defaultdict
 from models.issue import Issue
 from analyzer.labels import issue_label
 
-FIGURE_PATTERN = re.compile(r"图\s*(\d+)[-.－.](\d+)")
-TABLE_PATTERN = re.compile(r"表\s*(\d+)[-.－.](\d+)")
-EQUATION_PATTERN = re.compile(r"(?:公式|式)\s*[（(]\s*(\d+)[-.－.](\d+)\s*[）)]")
+NUMBER_SEP = r"[-.．－–—]"
+FIGURE_CAPTION_PATTERN = re.compile(r"^\s*图\s*(\d+)\s*" + NUMBER_SEP + r"\s*(\d+)(?!\d)")
+TABLE_CAPTION_PATTERN = re.compile(r"^\s*表\s*(\d+)\s*" + NUMBER_SEP + r"\s*(\d+)(?!\d)")
+EQUATION_PATTERN = re.compile(r"^\s*(?:公式|式)?\s*[（(]\s*(\d+)\s*" + NUMBER_SEP + r"\s*(\d+)\s*[）)]")
 HEADING_PATTERN = re.compile(r"^\s*(\d+(?:\.\d+){1,3})\s+(.+)$")
+
+
+def _looks_like_caption(text, kind):
+    value = text.strip()
+    if kind == "figure":
+        return bool(FIGURE_CAPTION_PATTERN.match(value))
+    if kind == "table":
+        return bool(TABLE_CAPTION_PATTERN.match(value))
+    return bool(EQUATION_PATTERN.match(value))
+
 
 def extract_numbered_items(paragraphs):
     items=[]
-    patterns=[("figure",FIGURE_PATTERN),("table",TABLE_PATTERN),("equation",EQUATION_PATTERN)]
+    patterns=[("figure",FIGURE_CAPTION_PATTERN),("table",TABLE_CAPTION_PATTERN),("equation",EQUATION_PATTERN)]
     for para in paragraphs:
-        text=para["text"]
+        text=para["text"].strip()
         for kind,pattern in patterns:
-            for m in pattern.finditer(text):
+            if not _looks_like_caption(text, kind):
+                continue
+            m = pattern.match(text)
+            if m:
                 items.append({"kind":kind,"chapter":int(m.group(1)),"index":int(m.group(2)),"raw":m.group(0),"paragraph_index":para["index"],"text":text})
     return items
 
@@ -31,7 +45,7 @@ def check_numbered_items(paragraphs):
         for item in group:
             if item["index"] in seen:
                 t=f"{kind}_number_duplicate"
-                issues.append(Issue(type=t,label=issue_label(t),group="manual",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"{name_map[kind]} {chapter}-{item['index']} 重复出现。",suggestion="请检查编号是否重复。",auto_fixable=False))
+                issues.append(Issue(type=t,label=issue_label(t),group="manual",paragraph_index=item["paragraph_index"],text=item["text"],problem=f"{name_map[kind]} {chapter}-{item['index']} 题注重复出现。",suggestion="请检查图题、表题或公式编号是否重复。正文中多次引用同一编号不会被视为重复。",auto_fixable=False))
             seen.add(item["index"])
         unique=sorted(set(indexes))
         if unique:
