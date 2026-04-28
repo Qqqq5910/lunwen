@@ -87,6 +87,8 @@ def extract_citation_rule_from_text(text):
         rule["superscript"]=False
     elif "上标" in text or "角标" in text:
         rule["superscript"]=True
+    if "list_separator']=" in rule:
+        rule["list_separator"]=rule.pop("list_separator']=")
     return rule
 
 def normalize_citation_rule(rule):
