@@ -7,7 +7,7 @@ from analyzer.reference_checker import split_body_and_reference, extract_referen
 from analyzer.citation_checker import find_citations, find_citation_sequences, get_cited_number_set, check_citation_format, check_citation_sequences
 from analyzer.structure_checker import check_numbered_items, check_headings
 from analyzer.school_rules import parse_school_requirement_docx, categorize_paragraphs, check_school_format
-from analyzer.fixer import fix_superscript_in_body, fix_citation_ranges_in_body, fix_school_format, save_fixed_document
+from analyzer.fixer import fix_superscript_in_body, fix_citation_ranges_in_body, fix_school_format, fix_plain_citations_in_body, save_fixed_document
 from analyzer.reporter import build_report, write_reports, compact_summary
 from analyzer.security import generate_token, write_token
 
