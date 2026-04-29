@@ -43,7 +43,7 @@ def analyze_document_state(document, school_rules=None):
     categorized = with_reference_title(categorize_paragraphs(body_paragraphs, reference_paragraphs), reference_title)
     if school_rules:
         issues.extend(check_school_format(categorized, school_rules))
-    return {"paragraphs": paragraphs, "body_paragraphs": body_paragraphs, "reference_paragraphs": reference_paragraphs, "references": references, "citations": citations, "citation_sequences": citation_sequences, "issues": issues, "categorized": categorized}
+    return {"paragraphs": paragraphs, "body_paragraphs": body_paragraphs, "reference_paragraphs": reference_paragraphs, "references": references, "citations": citations, "citation_sequences": citation_sequences, "issues": issues, "categorized": categorized, "reference_numbers": reference_numbers}
 
 
 def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False, fix_citation_ranges=False, fix_school=False, keep_history=True, job_id=None, report_base_dir="reports"):
@@ -57,12 +57,16 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
     document = load_document(source)
     before_state = analyze_document_state(document, school_rules)
     before_summary = compact_summary(before_state["body_paragraphs"], before_state["reference_paragraphs"], before_state["citations"], before_state["citation_sequences"], before_state["references"], before_state["issues"])
-    fixed_info = {"enabled": False, "superscript_fixed_count": 0, "citation_range_fixed_count": 0, "school_format_fixed_count": 0, "output_docx": None, "latest_docx": None, "download_url": None}
+    fixed_info = {"enabled": False, "plain_citation_fixed_count": 0, "superscript_fixed_count": 0, "citation_range_fixed_count": 0, "school_format_fixed_count": 0, "output_docx": None, "latest_docx": None, "download_url": None}
     final_document = document
     if fix_superscript or fix_citation_ranges or fix_school:
+        plain_citation_fixed_count = 0
         superscript_fixed_count = 0
         citation_range_fixed_count = 0
         school_format_fixed_count = 0
+        if fix_superscript:
+            plain_citation_fixed_count = fix_plain_citations_in_body(final_document, before_state["body_paragraphs"], before_state["reference_numbers"], citation_rule)
+            before_state = analyze_document_state(final_document, school_rules)
         if fix_citation_ranges:
             citation_range_fixed_count = fix_citation_ranges_in_body(final_document, before_state["body_paragraphs"], citation_rule)
             before_state = analyze_document_state(final_document, school_rules)
@@ -79,7 +83,7 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
         latest_docx = fixed_dir / "fixed_latest.docx"
         save_fixed_document(final_document, fixed_output)
         shutil.copyfile(fixed_output, latest_docx)
-        fixed_info = {"enabled": True, "superscript_fixed_count": superscript_fixed_count, "citation_range_fixed_count": citation_range_fixed_count, "school_format_fixed_count": school_format_fixed_count, "output_docx": str(fixed_output), "latest_docx": str(latest_docx), "download_url": f"/download/{current_job_id}/fixed/fixed_latest.docx?token={token}"}
+        fixed_info = {"enabled": True, "plain_citation_fixed_count": plain_citation_fixed_count, "superscript_fixed_count": superscript_fixed_count, "citation_range_fixed_count": citation_range_fixed_count, "school_format_fixed_count": school_format_fixed_count, "output_docx": str(fixed_output), "latest_docx": str(latest_docx), "download_url": f"/download/{current_job_id}/fixed/fixed_latest.docx?token={token}"}
     final_state = analyze_document_state(final_document, school_rules)
     report = build_report(source.name, final_state["body_paragraphs"], final_state["reference_paragraphs"], final_state["citations"], final_state["citation_sequences"], final_state["references"], final_state["issues"], fixed_info, before_summary, school_rules, token)
     report["job_id"] = current_job_id
