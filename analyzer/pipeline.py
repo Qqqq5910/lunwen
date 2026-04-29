@@ -7,7 +7,7 @@ from analyzer.reference_checker import split_body_and_reference, extract_referen
 from analyzer.citation_checker import find_citations, find_citation_sequences, get_cited_number_set, check_citation_format, check_citation_sequences
 from analyzer.structure_checker import check_numbered_items, check_headings
 from analyzer.school_rules import parse_school_requirement_docx, categorize_paragraphs, check_school_format
-from analyzer.fixer import fix_superscript_in_body, fix_citation_ranges_in_body, fix_school_format, fix_plain_citations_in_body, build_reference_bookmarks, save_fixed_document
+from analyzer.fixer import fix_superscript_in_body, fix_citation_ranges_in_body, fix_school_format, fix_plain_citations_in_body, save_fixed_document
 from analyzer.reporter import build_report, write_reports, compact_summary
 from analyzer.security import generate_token, write_token
 
@@ -64,17 +64,14 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
         superscript_fixed_count = 0
         citation_range_fixed_count = 0
         school_format_fixed_count = 0
-        bookmark_map = build_reference_bookmarks(before_state["references"], before_state["reference_paragraphs"])
         if fix_superscript:
-            plain_citation_fixed_count = fix_plain_citations_in_body(final_document, before_state["body_paragraphs"], before_state["reference_numbers"], citation_rule, bookmark_map)
+            plain_citation_fixed_count = fix_plain_citations_in_body(final_document, before_state["body_paragraphs"], before_state["reference_numbers"], citation_rule)
             before_state = analyze_document_state(final_document, school_rules)
-            bookmark_map = build_reference_bookmarks(before_state["references"], before_state["reference_paragraphs"])
         if fix_citation_ranges:
-            citation_range_fixed_count = fix_citation_ranges_in_body(final_document, before_state["body_paragraphs"], citation_rule, bookmark_map)
+            citation_range_fixed_count = fix_citation_ranges_in_body(final_document, before_state["body_paragraphs"], citation_rule)
             before_state = analyze_document_state(final_document, school_rules)
-            bookmark_map = build_reference_bookmarks(before_state["references"], before_state["reference_paragraphs"])
         if fix_superscript:
-            superscript_fixed_count = fix_superscript_in_body(final_document, before_state["body_paragraphs"], citation_rule, bookmark_map)
+            superscript_fixed_count = fix_superscript_in_body(final_document, before_state["body_paragraphs"], citation_rule)
             before_state = analyze_document_state(final_document, school_rules)
         if fix_school and school_rules:
             school_format_fixed_count = fix_school_format(final_document, before_state["categorized"], school_rules.get("rules", {}))
