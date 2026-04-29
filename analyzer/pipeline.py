@@ -10,6 +10,7 @@ from analyzer.school_rules import parse_school_requirement_docx, categorize_para
 from analyzer.fixer import fix_superscript_in_body, fix_citation_ranges_in_body, fix_school_format, fix_plain_citations_in_body, save_fixed_document
 from analyzer.reporter import build_report, write_reports, compact_summary
 from analyzer.security import generate_token, write_token
+import analyzer.fixer as fixer_module
 
 
 def get_citation_rule(school_rules):
@@ -46,6 +47,29 @@ def analyze_document_state(document, school_rules=None):
     return {"paragraphs": paragraphs, "body_paragraphs": body_paragraphs, "reference_paragraphs": reference_paragraphs, "references": references, "citations": citations, "citation_sequences": citation_sequences, "issues": issues, "categorized": categorized, "reference_numbers": reference_numbers}
 
 
+def safe_build_reference_bookmarks(state):
+    builder = getattr(fixer_module, "build_reference_bookmarks", None)
+    if not callable(builder):
+        return {}
+    try:
+        return builder(state.get("references", []), state.get("reference_paragraphs", [])) or {}
+    except Exception:
+        return {}
+
+
+def call_with_optional_bookmarks(func, document, body_paragraphs, citation_rule, bookmark_map=None, reference_numbers=None):
+    try:
+        if reference_numbers is None:
+            return func(document, body_paragraphs, citation_rule, bookmark_map)
+        return func(document, body_paragraphs, reference_numbers, citation_rule, bookmark_map)
+    except TypeError:
+        if reference_numbers is None:
+            return func(document, body_paragraphs, citation_rule)
+        return func(document, body_paragraphs, reference_numbers, citation_rule)
+    except Exception:
+        return 0
+
+
 def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False, fix_citation_ranges=False, fix_school=False, keep_history=True, job_id=None, report_base_dir="reports"):
     source = Path(file_path)
     current_job_id = job_id or uuid.uuid4().hex
@@ -64,17 +88,23 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
         superscript_fixed_count = 0
         citation_range_fixed_count = 0
         school_format_fixed_count = 0
+        bookmark_map = safe_build_reference_bookmarks(before_state)
         if fix_superscript:
-            plain_citation_fixed_count = fix_plain_citations_in_body(final_document, before_state["body_paragraphs"], before_state["reference_numbers"], citation_rule)
+            plain_citation_fixed_count = call_with_optional_bookmarks(fix_plain_citations_in_body, final_document, before_state["body_paragraphs"], citation_rule, bookmark_map, before_state["reference_numbers"])
             before_state = analyze_document_state(final_document, school_rules)
+            bookmark_map = safe_build_reference_bookmarks(before_state)
         if fix_citation_ranges:
-            citation_range_fixed_count = fix_citation_ranges_in_body(final_document, before_state["body_paragraphs"], citation_rule)
+            citation_range_fixed_count = call_with_optional_bookmarks(fix_citation_ranges_in_body, final_document, before_state["body_paragraphs"], citation_rule, bookmark_map)
             before_state = analyze_document_state(final_document, school_rules)
+            bookmark_map = safe_build_reference_bookmarks(before_state)
         if fix_superscript:
-            superscript_fixed_count = fix_superscript_in_body(final_document, before_state["body_paragraphs"], citation_rule)
+            superscript_fixed_count = call_with_optional_bookmarks(fix_superscript_in_body, final_document, before_state["body_paragraphs"], citation_rule, bookmark_map)
             before_state = analyze_document_state(final_document, school_rules)
         if fix_school and school_rules:
-            school_format_fixed_count = fix_school_format(final_document, before_state["categorized"], school_rules.get("rules", {}))
+            try:
+                school_format_fixed_count = fix_school_format(final_document, before_state["categorized"], school_rules.get("rules", {}))
+            except Exception:
+                school_format_fixed_count = 0
             before_state = analyze_document_state(final_document, school_rules)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         fixed_dir = report_dir / "fixed"
