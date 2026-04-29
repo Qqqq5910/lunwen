@@ -24,10 +24,12 @@ def plain_spans(text, valid_numbers=None):
 
 
 def looks_like_citation(text, start, end):
-    left = text[max(0, start - 20):start].lower()
-    right = text[end:min(len(text), end + 14)].lower()
-    if left.endswith('[') or left.endswith('［') or left.endswith('【') or left.endswith('〔'):
+    left = text[max(0, start - 20):start].lower().rstrip()
+    right = text[end:min(len(text), end + 14)].lower().lstrip()
+    if left.endswith('[') or left.endswith('('):
         return False
     left_keys = ['et al', 'ref', 'reference']
     right_keys = ['proposed', 'reported', 'showed', 'found', 'used']
-    return any(key in left for key in left_keys) and any(key in right for key in right_keys)
+    left_ok = any(key in left for key in left_keys) or (left and left[-1] > '~')
+    right_ok = any(key in right for key in right_keys) or (right and right[0] > '~')
+    return left_ok and right_ok
