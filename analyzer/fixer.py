@@ -2,9 +2,11 @@ from pathlib import Path
 from docx.shared import Pt, Cm
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, compact_sequence_text, normalize_single_marker_text, format_numbers
-from analyzer.docx_edit import replace_range_with_run
+from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, compact_sequence_text, normalize_single_marker_text, format_numbers, expand_citation_numbers
+from analyzer.docx_edit import replace_range_with_run, replace_range_with_ref_field, range_has_cross_reference, add_bookmark_to_paragraph
 from analyzer.marker_fix import plain_spans
+
+BOOKMARK_PREFIX = "ThesisRef"
 
 
 def _set_run_fonts(run, east_asia=None, latin=None, size_pt=None, bold=None):
@@ -41,43 +43,77 @@ def _set_paragraph_format(paragraph, rule):
         fmt.first_line_indent = Cm(rule["first_line_indent_cm"])
 
 
-def fix_plain_citations_in_body(document, body_paragraphs, reference_numbers=None, citation_rule=None):
+def build_reference_bookmarks(references, reference_paragraphs):
+    paragraphs = {item["index"]: item["paragraph"] for item in reference_paragraphs}
+    result = {}
+    for ref in references:
+        number = ref.get("number")
+        paragraph = paragraphs.get(ref.get("paragraph_index"))
+        if not number or paragraph is None:
+            continue
+        name = f"{BOOKMARK_PREFIX}_{number}"
+        add_bookmark_to_paragraph(paragraph, name, 70000 + int(number))
+        result[number] = name
+    return result
+
+
+def fix_plain_citations_in_body(document, body_paragraphs, reference_numbers=None, citation_rule=None, bookmark_map=None):
     fixed = 0
     rule = citation_rule or {"bracket_style": "[]", "range_separator": "~", "list_separator": ",", "superscript": True}
+    bookmark_map = bookmark_map or {}
     for item in body_paragraphs:
         paragraph = item["paragraph"]
         text = paragraph.text
         for start, end, number in reversed(plain_spans(text, reference_numbers)):
             replacement = format_numbers([number], rule)
-            fixed += replace_range_with_run(paragraph, start, end, replacement, rule.get("superscript", True))
+            bookmark = bookmark_map.get(number)
+            if bookmark:
+                fixed += replace_range_with_ref_field(paragraph, start, end, replacement, bookmark, rule.get("superscript", True))
+            else:
+                fixed += replace_range_with_run(paragraph, start, end, replacement, rule.get("superscript", True))
     return fixed
 
 
-def fix_superscript_in_body(document, body_paragraphs, citation_rule=None):
+def fix_superscript_in_body(document, body_paragraphs, citation_rule=None, bookmark_map=None):
     fixed = 0
     rule = citation_rule or {"bracket_style": "[]", "range_separator": "~", "list_separator": ",", "superscript": True}
     superscript = rule.get("superscript", True)
+    bookmark_map = bookmark_map or {}
     for item in body_paragraphs:
         paragraph = item["paragraph"]
         text = paragraph.text
         matches = list(CITATION_PATTERN.finditer(text))
         for match in reversed(matches):
             replacement = normalize_single_marker_text(match.group(0), rule)
-            fixed += replace_range_with_run(paragraph, match.start(), match.end(), replacement, superscript)
+            if range_has_cross_reference(paragraph, match.start(), match.end()):
+                continue
+            numbers = expand_citation_numbers(match.group(0))
+            bookmark = bookmark_map.get(numbers[0]) if numbers else None
+            if bookmark:
+                fixed += replace_range_with_ref_field(paragraph, match.start(), match.end(), replacement, bookmark, superscript)
+            else:
+                fixed += replace_range_with_run(paragraph, match.start(), match.end(), replacement, superscript)
     return fixed
 
 
-def fix_citation_ranges_in_body(document, body_paragraphs, citation_rule=None):
+def fix_citation_ranges_in_body(document, body_paragraphs, citation_rule=None, bookmark_map=None):
     fixed = 0
     rule = citation_rule or {"bracket_style": "[]", "range_separator": "~", "list_separator": ",", "superscript": True}
     superscript = rule.get("superscript", True)
+    bookmark_map = bookmark_map or {}
     for item in body_paragraphs:
         paragraph = item["paragraph"]
         text = paragraph.text
         matches = list(CITATION_SEQUENCE_PATTERN.finditer(text))
         for match in reversed(matches):
             replacement = compact_sequence_text(match.group(0), rule)
-            if replacement != match.group(0):
+            if replacement == match.group(0) and range_has_cross_reference(paragraph, match.start(), match.end()):
+                continue
+            numbers = expand_citation_numbers(match.group(0))
+            bookmark = bookmark_map.get(numbers[0]) if numbers else None
+            if bookmark:
+                fixed += replace_range_with_ref_field(paragraph, match.start(), match.end(), replacement, bookmark, superscript)
+            elif replacement != match.group(0):
                 fixed += replace_range_with_run(paragraph, match.start(), match.end(), replacement, superscript)
     return fixed
 
