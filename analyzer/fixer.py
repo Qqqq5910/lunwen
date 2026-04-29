@@ -2,8 +2,9 @@ from pathlib import Path
 from docx.shared import Pt, Cm
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, compact_sequence_text, normalize_single_marker_text
+from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, compact_sequence_text, normalize_single_marker_text, format_numbers
 from analyzer.docx_edit import replace_range_with_run
+from analyzer.marker_fix import plain_spans
 
 
 def _set_run_fonts(run, east_asia=None, latin=None, size_pt=None, bold=None):
@@ -38,6 +39,18 @@ def _set_paragraph_format(paragraph, rule):
         fmt.space_after = Pt(rule["space_after_pt"])
     if rule.get("first_line_indent_cm") is not None:
         fmt.first_line_indent = Cm(rule["first_line_indent_cm"])
+
+
+def fix_plain_citations_in_body(document, body_paragraphs, reference_numbers=None, citation_rule=None):
+    fixed = 0
+    rule = citation_rule or {"bracket_style": "[]", "range_separator": "~", "list_separator": ",", "superscript": True}
+    for item in body_paragraphs:
+        paragraph = item["paragraph"]
+        text = paragraph.text
+        for start, end, number in reversed(plain_spans(text, reference_numbers)):
+            replacement = format_numbers([number], rule)
+            fixed += replace_range_with_run(paragraph, start, end, replacement, rule.get("superscript", True))
+    return fixed
 
 
 def fix_superscript_in_body(document, body_paragraphs, citation_rule=None):
