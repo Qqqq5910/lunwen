@@ -1,6 +1,7 @@
 from models.issue import Issue
 from analyzer.labels import issue_label
 from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, normalize_marker, expand_citation_numbers, compact_sequence_text
+from docx.oxml.ns import qn
 
 
 def get_run_spans(paragraph):
@@ -25,11 +26,30 @@ def runs_for_range(spans,start,end):
     return result
 
 
+def run_has_superscript_xml(run):
+    rpr=run._element.rPr
+    if rpr is None:
+        return False
+    vert=rpr.find(qn("w:vertAlign"))
+    return vert is not None and vert.get(qn("w:val"))=="superscript"
+
+
+def run_is_field_or_hyperlink(run):
+    node=run._element
+    while node is not None:
+        if node.tag in {qn("w:hyperlink"), qn("w:fldSimple")}:
+            return True
+        node=node.getparent()
+    return run._element.find(qn("w:fldChar")) is not None or run._element.find(qn("w:instrText")) is not None
+
+
 def is_marker_superscript(paragraph,start,end):
-    runs=runs_for_range(get_run_spans(paragraph),start,end)
+    runs=[run for run in runs_for_range(get_run_spans(paragraph),start,end) if run.text]
     if not runs:
         return False
-    return all(run.font.superscript is True for run in runs if run.text)
+    if any(run_is_field_or_hyperlink(run) for run in runs):
+        return True
+    return all((run.font.superscript is True) or run_has_superscript_xml(run) for run in runs)
 
 
 def find_citations(paragraphs):
