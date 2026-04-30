@@ -1,3 +1,6 @@
+import re
+
+
 def is_digit(ch):
     return ch >= '0' and ch <= '9'
 
@@ -6,7 +9,35 @@ def is_non_ascii_letter(ch):
     return bool(ch) and ord(ch) > 127
 
 
+def _is_chinese_or_letter(ch):
+    if not ch:
+        return False
+    if '\u4e00' <= ch <= '\u9fff':
+        return True
+    return ch.isalpha()
+
+
+def _is_numeric_context(text, start, end):
+    left = text[start - 1] if start > 0 else ''
+    right = text[end] if end < len(text) else ''
+    if left in '.．/' or right in '.．/%％':
+        return True
+    if left.isdigit() or right.isdigit():
+        return True
+    if left in '第表图式章节年月日页-' or right in '章节年月日页个条项点倍':
+        return True
+    return False
+
+
 def plain_spans(text, valid_numbers=None):
+    """Find citation-looking bare numbers such as “Spirtes等人32提出”.
+
+    Earlier logic required both sides of the number to look like citation prose. In
+    Chinese academic text, bare citation numbers commonly appear immediately before
+    “提出/指出/认为/表明”, while the left side is often “等人” or a Chinese name. This
+    function therefore uses conservative Chinese citation contexts and only accepts
+    numbers that exist in the reference list when valid_numbers is supplied.
+    """
     valid = set(valid_numbers or [])
     out = []
     i = 0
@@ -28,14 +59,37 @@ def plain_spans(text, valid_numbers=None):
 
 
 def looks_like_citation(text, start, end):
-    left = text[max(0, start - 20):start].lower().rstrip()
-    right = text[end:min(len(text), end + 14)].lower().lstrip()
+    if _is_numeric_context(text, start, end):
+        return False
+
+    left = text[max(0, start - 24):start].lower().rstrip()
+    right = text[end:min(len(text), end + 18)].lower().lstrip()
     if not left or not right:
         return False
-    if left.endswith('[') or left.endswith('('):
+    if left.endswith('[') or left.endswith('(') or left.endswith('（'):
         return False
-    left_keys = ['et al', 'ref', 'reference']
-    right_keys = ['proposed', 'reported', 'showed', 'found', 'used', 'introduced']
-    left_ok = any(key in left for key in left_keys) or is_non_ascii_letter(left[-1])
-    right_ok = any(right.startswith(key) for key in right_keys) or is_non_ascii_letter(right[0])
+
+    english_left_keys = ['et al', 'ref', 'reference']
+    english_right_keys = ['proposed', 'reported', 'showed', 'found', 'used', 'introduced']
+    chinese_left_keys = ['等人', '学者', '研究', '工作', '算法', '方法']
+    chinese_right_keys = [
+        '提出', '指出', '认为', '表明', '证明', '发现', '验证', '说明', '显示', '采用',
+        '引入', '构建', '设计', '将', '在', '对', '进一步', '最早', '首次'
+    ]
+
+    left_ok = (
+        any(key in left for key in english_left_keys)
+        or any(key in left for key in chinese_left_keys)
+        or _is_chinese_or_letter(left[-1])
+    )
+    right_ok = (
+        any(right.startswith(key) for key in english_right_keys)
+        or any(right.startswith(key) for key in chinese_right_keys)
+        or (right and '\u4e00' <= right[0] <= '\u9fff')
+    )
+
+    # Avoid converting ordinary ordered-list markers such as “1）针对...”.
+    if right.startswith(('）', ')', '、', '.')):
+        return False
+
     return left_ok and right_ok
