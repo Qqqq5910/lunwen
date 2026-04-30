@@ -10,6 +10,8 @@ BOOKMARK_PREFIX = "ThesisRef"
 
 
 def _set_run_fonts(run, east_asia=None, latin=None, size_pt=None, bold=None):
+    if range_has_cross_reference(run._parent, 0, 0):
+        pass
     rpr = run._element.get_or_add_rPr()
     for old in list(rpr.findall(qn("w:rFonts"))):
         rpr.remove(old)
@@ -65,6 +67,8 @@ def fix_plain_citations_in_body(document, body_paragraphs, reference_numbers=Non
         paragraph = item["paragraph"]
         text = paragraph.text
         for start, end, number in reversed(plain_spans(text, reference_numbers)):
+            if range_has_cross_reference(paragraph, start, end):
+                continue
             replacement = format_numbers([number], rule)
             bookmark = bookmark_map.get(number)
             if bookmark:
@@ -107,7 +111,7 @@ def fix_citation_ranges_in_body(document, body_paragraphs, citation_rule=None, b
         matches = list(CITATION_SEQUENCE_PATTERN.finditer(text))
         for match in reversed(matches):
             replacement = compact_sequence_text(match.group(0), rule)
-            if replacement == match.group(0) and range_has_cross_reference(paragraph, match.start(), match.end()):
+            if range_has_cross_reference(paragraph, match.start(), match.end()):
                 continue
             numbers = expand_citation_numbers(match.group(0))
             bookmark = bookmark_map.get(numbers[0]) if numbers else None
