@@ -96,6 +96,8 @@ def add_bookmark_to_paragraph(paragraph, name, bookmark_id):
 
 
 def replace_range_with_run(paragraph, start, end, replacement, superscript=True):
+    if range_has_cross_reference(paragraph, start, end):
+        return 0
     touched = touched_runs(paragraph, start, end)
     if not touched:
         return 0
@@ -127,6 +129,8 @@ def replace_range_with_run(paragraph, start, end, replacement, superscript=True)
 
 
 def replace_range_with_ref_field(paragraph, start, end, display_text, bookmark_name, superscript=True):
+    if range_has_cross_reference(paragraph, start, end):
+        return 0
     touched = touched_runs(paragraph, start, end)
     if not touched:
         return 0
