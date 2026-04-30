@@ -2,6 +2,7 @@ from models.issue import Issue
 from analyzer.labels import issue_label
 from analyzer.citation_utils import CITATION_PATTERN, CITATION_SEQUENCE_PATTERN, normalize_marker, expand_citation_numbers, compact_sequence_text
 from docx.oxml.ns import qn
+import re
 
 
 def get_run_spans(paragraph):
@@ -52,18 +53,43 @@ def is_marker_superscript(paragraph,start,end):
     return all((run.font.superscript is True) or run_has_superscript_xml(run) for run in runs)
 
 
+def paragraph_field_text(paragraph):
+    parts=[]
+    for node in paragraph._p.iter():
+        if node.tag==qn("w:t") and node.text:
+            parts.append(node.text)
+    return "".join(parts)
+
+
+def unique_citations(citations):
+    seen=set()
+    out=[]
+    for item in citations:
+        key=(item["paragraph_index"], tuple(item["numbers"]), item["raw"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
 def find_citations(paragraphs):
     citations=[]
     for item in paragraphs:
         paragraph=item["paragraph"]
-        text=paragraph.text
-        for match in CITATION_PATTERN.finditer(text):
-            raw=match.group(0)
-            numbers=expand_citation_numbers(raw)
-            if not numbers:
-                continue
-            citations.append({"paragraph_index":item["index"],"raw":raw,"normalized":normalize_marker(raw),"numbers":numbers,"text":text.strip(),"start":match.start(),"end":match.end(),"is_superscript":is_marker_superscript(paragraph,match.start(),match.end())})
-    return citations
+        texts=[paragraph.text]
+        rich_text=paragraph_field_text(paragraph)
+        if rich_text and rich_text!=paragraph.text:
+            texts.append(rich_text)
+        for text in texts:
+            for match in CITATION_PATTERN.finditer(text):
+                raw=match.group(0)
+                numbers=expand_citation_numbers(raw)
+                if not numbers:
+                    continue
+                is_super=True if text is rich_text and text!=paragraph.text else is_marker_superscript(paragraph,match.start(),match.end())
+                citations.append({"paragraph_index":item["index"],"raw":raw,"normalized":normalize_marker(raw),"numbers":numbers,"text":text.strip(),"start":match.start(),"end":match.end(),"is_superscript":is_super})
+    return unique_citations(citations)
 
 
 def find_citation_sequences(paragraphs,citation_rule=None):
