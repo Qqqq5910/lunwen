@@ -1,4 +1,5 @@
 from copy import deepcopy
+import re
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm
@@ -95,6 +96,17 @@ def add_bookmark_to_paragraph(paragraph, name, bookmark_id):
     paragraph._p.append(end)
 
 
+def make_bookmark_hyperlink(run_element, display_text, bookmark_name, superscript=True):
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("w:anchor"), bookmark_name)
+    hyperlink.set(qn("w:history"), "1")
+    link_run = deepcopy(run_element)
+    set_r_text(link_run, display_text)
+    set_r_superscript(link_run, superscript)
+    hyperlink.append(link_run)
+    return hyperlink
+
+
 def replace_range_with_run(paragraph, start, end, replacement, superscript=True):
     if range_has_cross_reference(paragraph, start, end):
         return 0
@@ -145,13 +157,7 @@ def replace_range_with_ref_field(paragraph, start, end, display_text, bookmark_n
         prefix_r = deepcopy(first_run._r)
         set_r_text(prefix_r, prefix)
         new_elements.append(prefix_r)
-    field = OxmlElement("w:fldSimple")
-    field.set(qn("w:instr"), " REF " + bookmark_name + " \\h ")
-    field_run = deepcopy(first_run._r)
-    set_r_text(field_run, display_text)
-    set_r_superscript(field_run, superscript)
-    field.append(field_run)
-    new_elements.append(field)
+    new_elements.append(make_bookmark_hyperlink(first_run._r, display_text, bookmark_name, superscript))
     if suffix:
         suffix_r = deepcopy(last_run._r)
         set_r_text(suffix_r, suffix)
@@ -161,6 +167,42 @@ def replace_range_with_ref_field(paragraph, start, end, display_text, bookmark_n
     for offset, element in enumerate(new_elements):
         parent.insert(insert_index + offset, element)
     return 1
+
+
+def convert_generated_ref_fields_to_hyperlinks(document):
+    """Convert old generated REF ThesisRef_* fldSimple fields to direct links.
+
+    Some PDF exporters keep TOC links but do not export REF fields as clickable
+    annotations. Direct w:hyperlink anchors are more reliable for both Word and
+    PDF export, while existing user-created references with other bookmark names
+    are left untouched.
+    """
+    converted = 0
+    pattern = re.compile(r"REF\s+(ThesisRef_\d+)\b")
+    for paragraph in document.paragraphs:
+        for field in list(paragraph._p.iter(qn("w:fldSimple"))):
+            instr = field.get(qn("w:instr")) or ""
+            match = pattern.search(instr)
+            if not match:
+                continue
+            bookmark_name = match.group(1)
+            parent = field.getparent()
+            if parent is None:
+                continue
+            index = parent.index(field)
+            text = "".join(t.text or "" for t in field.iter(qn("w:t")))
+            source_run = None
+            for child in field:
+                if child.tag == qn("w:r"):
+                    source_run = child
+                    break
+            if source_run is None:
+                source_run = OxmlElement("w:r")
+            hyperlink = make_bookmark_hyperlink(source_run, text, bookmark_name, True)
+            parent.remove(field)
+            parent.insert(index, hyperlink)
+            converted += 1
+    return converted
 
 
 def set_paragraph_basic_format(paragraph, rule):
