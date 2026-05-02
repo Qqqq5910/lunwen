@@ -8,6 +8,7 @@ from analyzer.citation_checker import find_citations, find_citation_sequences, g
 from analyzer.structure_checker import check_numbered_items, check_headings
 from analyzer.school_rules import parse_school_requirement_docx, categorize_paragraphs, check_school_format
 from analyzer.fixer import fix_superscript_in_body, fix_citation_ranges_in_body, fix_school_format, fix_plain_citations_in_body, save_fixed_document
+from analyzer.whitespace_cleaner import clean_body_whitespace
 from analyzer.reporter import build_report, write_reports, compact_summary
 from analyzer.security import generate_token, write_token
 import analyzer.fixer as fixer_module
@@ -81,13 +82,14 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
     document = load_document(source)
     before_state = analyze_document_state(document, school_rules)
     before_summary = compact_summary(before_state["body_paragraphs"], before_state["reference_paragraphs"], before_state["citations"], before_state["citation_sequences"], before_state["references"], before_state["issues"])
-    fixed_info = {"enabled": False, "plain_citation_fixed_count": 0, "superscript_fixed_count": 0, "citation_range_fixed_count": 0, "school_format_fixed_count": 0, "output_docx": None, "latest_docx": None, "download_url": None}
+    fixed_info = {"enabled": False, "plain_citation_fixed_count": 0, "superscript_fixed_count": 0, "citation_range_fixed_count": 0, "school_format_fixed_count": 0, "whitespace_fixed_count": 0, "output_docx": None, "latest_docx": None, "download_url": None}
     final_document = document
     if fix_superscript or fix_citation_ranges or fix_school:
         plain_citation_fixed_count = 0
         superscript_fixed_count = 0
         citation_range_fixed_count = 0
         school_format_fixed_count = 0
+        whitespace_fixed_count = 0
         bookmark_map = safe_build_reference_bookmarks(before_state)
         if fix_superscript:
             plain_citation_fixed_count = call_with_optional_bookmarks(fix_plain_citations_in_body, final_document, before_state["body_paragraphs"], citation_rule, bookmark_map, before_state["reference_numbers"])
@@ -100,6 +102,11 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
         if fix_superscript:
             superscript_fixed_count = call_with_optional_bookmarks(fix_superscript_in_body, final_document, before_state["body_paragraphs"], citation_rule, bookmark_map)
             before_state = analyze_document_state(final_document, school_rules)
+        try:
+            whitespace_fixed_count = clean_body_whitespace(final_document, before_state["body_paragraphs"])
+        except Exception:
+            whitespace_fixed_count = 0
+        before_state = analyze_document_state(final_document, school_rules)
         if fix_school and school_rules:
             try:
                 school_format_fixed_count = fix_school_format(final_document, before_state["categorized"], school_rules.get("rules", {}))
@@ -113,7 +120,7 @@ def analyze_docx(file_path, school_requirement_path=None, fix_superscript=False,
         latest_docx = fixed_dir / "fixed_latest.docx"
         save_fixed_document(final_document, fixed_output)
         shutil.copyfile(fixed_output, latest_docx)
-        fixed_info = {"enabled": True, "plain_citation_fixed_count": plain_citation_fixed_count, "superscript_fixed_count": superscript_fixed_count, "citation_range_fixed_count": citation_range_fixed_count, "school_format_fixed_count": school_format_fixed_count, "output_docx": str(fixed_output), "latest_docx": str(latest_docx), "download_url": f"/download/{current_job_id}/fixed/fixed_latest.docx?token={token}"}
+        fixed_info = {"enabled": True, "plain_citation_fixed_count": plain_citation_fixed_count, "superscript_fixed_count": superscript_fixed_count, "citation_range_fixed_count": citation_range_fixed_count, "school_format_fixed_count": school_format_fixed_count, "whitespace_fixed_count": whitespace_fixed_count, "output_docx": str(fixed_output), "latest_docx": str(latest_docx), "download_url": f"/download/{current_job_id}/fixed/fixed_latest.docx?token={token}"}
     final_state = analyze_document_state(final_document, school_rules)
     report = build_report(source.name, final_state["body_paragraphs"], final_state["reference_paragraphs"], final_state["citations"], final_state["citation_sequences"], final_state["references"], final_state["issues"], fixed_info, before_summary, school_rules, token)
     report["job_id"] = current_job_id
