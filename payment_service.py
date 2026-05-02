@@ -1,4 +1,5 @@
 import base64
+import io
 import json
 import os
 import secrets
@@ -10,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+import qrcode
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -92,7 +94,7 @@ def create_local_payment(job_id: str, provider: str) -> Dict[str, Any]:
             (job_id, provider, out_trade_no, product_amount_cents(), "PENDING", now),
         )
         conn.commit()
-    return {"job_id": job_id, "provider": provider, "out_trade_no": out_trade_no, "amount_cents": product_amount_cents(), "status": "PENDING"}
+    return {"job_id": job_id, "provider": provider, "out_trade_no": out_trade_no, "amount_cents": product_amount_cents(), "amount_yuan": product_amount_yuan(), "status": "PENDING"}
 
 
 def mark_paid(out_trade_no: str, provider_trade_no: str = "") -> bool:
@@ -144,6 +146,13 @@ def load_private_key(path_env: str, content_env: str = ""):
 def load_public_key_from_path_or_content(path_env: str, content_env: str = ""):
     raw = _read_key_text(path_env, content_env)
     return serialization.load_pem_public_key(_normalize_public_pem(raw))
+
+
+def qr_data_uri(value: str) -> str:
+    img = qrcode.make(value)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
 # ---------------- Alipay ----------------
@@ -255,7 +264,7 @@ def create_wechat_native_payment(job_id: str) -> Dict[str, Any]:
     code_url = data.get("code_url")
     if not code_url:
         raise RuntimeError("微信支付未返回二维码链接")
-    return {**payment, "code_url": code_url, "method": "native"}
+    return {**payment, "code_url": code_url, "qr_data_uri": qr_data_uri(code_url), "method": "native"}
 
 
 def load_wechat_platform_public_key():
@@ -305,7 +314,7 @@ def handle_wechat_notify(body: str, headers: Dict[str, str]) -> bool:
 
 def create_payment_order(job_id: str, provider: str) -> Dict[str, Any]:
     if is_job_paid(job_id):
-        return {"job_id": job_id, "paid": True, "amount_cents": product_amount_cents()}
+        return {"job_id": job_id, "paid": True, "amount_cents": product_amount_cents(), "amount_yuan": product_amount_yuan()}
     provider = provider.lower()
     if provider == "alipay":
         return create_alipay_page_payment(job_id)
