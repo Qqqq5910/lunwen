@@ -4,62 +4,71 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>论文格式终检助手</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=20260502-ui2">
 </head>
 <body>
-  <main class="page">
-    <section class="hero">
-      <div class="heroContent">
-        <p class="eyebrow">Thesis Format Checker</p>
+  <main class="pageShell">
+    <section class="heroPanel">
+      <div class="heroText">
+        <p class="eyebrow">THESIS FORMAT CHECKER</p>
         <h1>论文格式终检助手</h1>
-        <p class="subtitle">上传论文 Word，自动检查正文引用、参考文献、标题编号、图表编号与学校格式要求，并生成可下载的修复版。</p>
-        <div class="heroBadges">
-          <span>引用上标</span>
-          <span>交叉引用</span>
-          <span>空格清理</span>
-          <span>格式报告</span>
+        <p class="subtitle">一键检查并修复正文引用、交叉引用、参考文献对应关系、异常空格与学校格式规则。</p>
+        <div class="heroMeta">
+          <span>上标引用</span>
+          <span>可跳转交叉引用</span>
+          <span>Word 修复版</span>
+          <span>检测报告</span>
         </div>
+      </div>
+      <div class="heroPreview" aria-hidden="true">
+        <div class="previewCard active"><span></span>引用识别</div>
+        <div class="previewCard"><span></span>空格清理</div>
+        <div class="previewCard"><span></span>格式报告</div>
       </div>
     </section>
 
-    <section class="card uploadCard">
-      <form id="uploadForm">
+    <section class="workPanel">
+      <form id="uploadForm" class="uploadForm">
         <div class="uploadGrid">
-          <label class="upload primaryUpload">
+          <label class="uploadTile primaryTile" id="thesisTile">
             <input id="thesisInput" name="thesis_file" type="file" accept=".docx">
-            <span class="uploadIcon">📄</span>
-            <span id="thesisName">上传论文 .docx</span>
-            <small>支持自动生成修复版 Word</small>
+            <span class="tileIcon">📄</span>
+            <strong id="thesisName">上传论文 Word</strong>
+            <small>必填，支持 .docx</small>
           </label>
-          <label class="upload secondary">
+          <label class="uploadTile" id="schoolTile">
             <input id="schoolInput" name="school_requirement_file" type="file" accept=".docx">
-            <span class="uploadIcon">🏫</span>
-            <span id="schoolName">上传学校格式要求 .docx（可选）</span>
-            <small>用于匹配字体、字号、行距与标题规则</small>
+            <span class="tileIcon">🏫</span>
+            <strong id="schoolName">上传学校格式要求</strong>
+            <small>可选，用于匹配字体、字号、行距与标题规则</small>
           </label>
         </div>
 
-        <div class="options singleOption">
-          <label class="repairSwitch"><input type="checkbox" id="autoRepair" checked><span>一键修复</span><small>自动处理正文引用、连续引用、异常空格与可识别的学校格式规则</small></label>
-        </div>
+        <label class="repairBar">
+          <input type="checkbox" id="autoRepair" checked>
+          <span class="repairText"><strong>一键修复</strong><small>自动处理正文引用、连续引用、交叉引用、异常空格与可识别的学校格式规则</small></span>
+        </label>
 
         <div class="actionRow">
           <button type="submit" id="submitBtn">开始检测并生成修复版</button>
-          <span class="actionHint">检测完成后可直接下载 Word 与报告</span>
+          <span class="actionHint">检测完成后可下载 Word 修复版和报告</span>
         </div>
       </form>
     </section>
 
-    <section id="status" class="status hidden"></section>
+    <section id="status" class="statusPanel hidden" role="status" aria-live="polite"></section>
 
-    <section id="result" class="result hidden">
-      <div class="resultHeader"><div><h2>检测结果</h2><p id="filenameText" class="muted"></p></div><div id="downloadLinks" class="downloadLinks"></div></div>
+    <section id="result" class="resultPanel hidden">
+      <div class="resultHeader">
+        <div><h2>检测结果</h2><p id="filenameText" class="muted"></p></div>
+        <div id="downloadLinks" class="downloadLinks"></div>
+      </div>
       <div id="summaryGrid" class="summaryGrid"></div>
       <div id="compareBox" class="compareBox hidden"></div>
       <div id="schoolRulesBox" class="schoolRulesBox hidden"></div>
       <div class="columns"><div><h3>问题类型统计</h3><div id="typeCounts" class="list"></div></div><div><h3>问题明细</h3><div id="groupedIssues" class="issues"></div></div></div>
     </section>
   </main>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20260502-ui2" defer></script>
 </body>
 </html>
