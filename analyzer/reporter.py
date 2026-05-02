@@ -4,6 +4,25 @@ from datetime import datetime
 from analyzer.labels import GROUP_LABELS
 
 
+HIDDEN_DETAIL_GROUPS_WHEN_FIXED = {"fixed", "auto"}
+
+
+def issues_requiring_attention(issues, fixed_info=None):
+    """Return only issues that should be shown in the user-facing detail list.
+
+    Once automatic repair is enabled, fixed/auto-fixable items should not keep
+    appearing as reminders. The detail list is reserved for issues that still need
+    review or cannot be safely repaired automatically.
+    """
+    fixed_enabled = bool((fixed_info or {}).get("enabled"))
+    if not fixed_enabled:
+        return issues
+    return [
+        issue for issue in issues
+        if (issue.group not in HIDDEN_DETAIL_GROUPS_WHEN_FIXED) and not getattr(issue, "fixed", False)
+    ]
+
+
 def issue_type_counts_zh(issues):
     result = {}
     for issue in issues:
@@ -50,18 +69,19 @@ def compact_summary(body_paragraphs, reference_paragraphs, citations, citation_s
 
 
 def build_report(filename, body_paragraphs, reference_paragraphs, citations, citation_sequences, references, issues, fixed_info=None, before_summary=None, school_rules=None, token=None):
+    detail_issues = issues_requiring_attention(issues, fixed_info)
     return {
         "filename": filename,
         "summary": compact_summary(body_paragraphs, reference_paragraphs, citations, citation_sequences, references, issues),
         "before_summary": before_summary,
-        "issue_type_counts": issue_type_counts_zh(issues),
-        "group_counts": group_counts(issues),
+        "issue_type_counts": issue_type_counts_zh(detail_issues),
+        "group_counts": group_counts(detail_issues),
         "group_labels": GROUP_LABELS,
-        "issues_by_group": split_issues_by_group(issues),
+        "issues_by_group": split_issues_by_group(detail_issues),
         "fixed": fixed_info,
         "school_rules": school_rules,
         "download_token": token,
-        "issues_preview": [issue.model_dump() for issue in issues[:10]]
+        "issues_preview": [issue.model_dump() for issue in detail_issues[:10]]
     }
 
 
@@ -107,6 +127,8 @@ def render_txt(report):
     lines.append(f"上标修复片段数：{fixed.get('superscript_fixed_count')}")
     lines.append(f"连续引用合并数：{fixed.get('citation_range_fixed_count')}")
     lines.append(f"学校格式修复段落数：{fixed.get('school_format_fixed_count')}")
+    lines.append(f"异常空格清理数：{fixed.get('whitespace_fixed_count')}")
+    lines.append(f"引用链接转换数：{fixed.get('hyperlink_converted_count')}")
     if fixed.get("output_docx"):
         lines.append(f"修复文件：{fixed.get('output_docx')}")
     before = report.get("before_summary")
@@ -130,15 +152,21 @@ def render_txt(report):
             if parts:
                 lines.append(f"{key}: {'，'.join(parts)}")
     lines.append("")
-    lines.append("五、问题类型统计")
-    for key, value in report.get("issue_type_counts", {}).items():
-        lines.append(f"{key}: {value}")
+    lines.append("五、仍需关注的问题类型统计")
+    counts = report.get("issue_type_counts", {})
+    if counts:
+        for key, value in counts.items():
+            lines.append(f"{key}: {value}")
+    else:
+        lines.append("暂无需要人工关注的问题。")
     lines.append("")
-    lines.append("六、问题明细")
+    lines.append("六、仍需关注的问题明细")
+    has_detail = False
     for group_key, group_label in report.get("group_labels", {}).items():
         items = (report.get("issues_by_group") or {}).get(group_key) or []
         if not items:
             continue
+        has_detail = True
         lines.append("")
         lines.append(group_label)
         for idx, issue in enumerate(items, start=1):
@@ -148,4 +176,6 @@ def render_txt(report):
             if issue.get("text"):
                 lines.append(f"原文：{issue.get('text')}")
             lines.append(f"建议：{issue.get('suggestion')}")
+    if not has_detail:
+        lines.append("暂无需要人工关注的问题。")
     return "\n".join(lines)
