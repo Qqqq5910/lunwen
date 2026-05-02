@@ -5,3 +5,4 @@ python-multipart
 pydantic
 jinja2
 cryptography
+qrcode[pil]
