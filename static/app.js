@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const form=$("uploadForm"),thesisInput=$("thesisInput"),schoolInput=$("schoolInput"),thesisName=$("thesisName"),schoolName=$("schoolName"),submitBtn=$("submitBtn"),statusBox=$("status"),resultBox=$("result"),summaryGrid=$("summaryGrid"),typeCounts=$("typeCounts"),groupedIssues=$("groupedIssues"),downloadLinks=$("downloadLinks"),filenameText=$("filenameText"),autoRepair=$("autoRepair"),compareBox=$("compareBox"),schoolRulesBox=$("schoolRulesBox"),thesisTile=$("thesisTile"),schoolTile=$("schoolTile");
-let loadingTimer=null,loadingStep=0;
+let loadingTimer=null,loadingStep=0,lastReport=null,paymentPollTimer=null;
 const loadingSteps=["📄 正在解析 Word 文档结构…","🔍 正在识别正文引用与参考文献…","🔗 正在保留已有交叉引用并补全缺失链接…","🧹 正在清理正文异常空格…","📊 正在生成检测报告与修复版 Word…"];
 
 function bindFile(input,nameEl,tile,placeholder){
@@ -33,6 +33,7 @@ form.addEventListener("submit",async e=>{
     else payload={detail:await response.text()};
     if(!response.ok)throw new Error(payload.detail||payload.message||`检测失败（${response.status}）`);
     stopLoading("✅ 检测完成，报告与修复版已生成。","done");
+    lastReport=payload;
     renderReport(payload);
   }catch(error){
     stopLoading(error.message||"检测失败，请稍后重试。","warn");
@@ -52,5 +53,58 @@ function renderSchoolRules(schoolRules){if(!schoolRules||!schoolRules.rule_count
 function renderTypeCounts(counts){const entries=Object.entries(counts);if(!entries.length){typeCounts.innerHTML=`<div class="listItem"><span>暂无问题</span><strong>0</strong></div>`;return}typeCounts.innerHTML=entries.map(([key,value])=>`<div class="listItem"><span>${escapeHtml(key)}</span><strong>${value}</strong></div>`).join("")}
 function renderGroupedIssues(groups,labels){const order=["fixed","manual","reminder","school","auto"];const html=order.map(key=>{const items=groups[key]||[];if(!items.length)return"";const title=labels[key]||key;return `<div class="groupBlock"><h4 class="groupTitle">${escapeHtml(title)}（${items.length}）</h4>${items.slice(0,30).map(renderIssue).join("")}</div>`}).join("");groupedIssues.innerHTML=html||`<div class="issue empty"><strong>没有发现需要展示的问题。</strong><p>当前文件未发现明显格式问题。</p></div>`}
 function renderIssue(issue){return `<div class="issue"><div class="issueTop"><strong>${escapeHtml(issue.problem)}</strong><span class="badge">${escapeHtml(issue.label||issue.type)}</span></div><p>${escapeHtml(issue.suggestion||"")}</p>${issue.text?`<p class="raw">${escapeHtml(issue.text)}</p>`:""}</div>`}
-function renderDownloads(report){const links=[];if(report.fixed&&report.fixed.download_url)links.push(`<a class="primaryLink" href="${report.fixed.download_url}">下载修复版 Word</a>`);if(report.report_files&&report.report_files.txt_download_url)links.push(`<a href="${report.report_files.txt_download_url}">TXT 报告</a>`);if(report.report_files&&report.report_files.json_download_url)links.push(`<a href="${report.report_files.json_download_url}">JSON 报告</a>`);downloadLinks.innerHTML=links.join("")}
+function renderDownloads(report){
+  const links=[];
+  const paywall=report.paywall||{};
+  const paid=!paywall.enabled||paywall.paid;
+  if(report.fixed&&report.fixed.download_url){
+    if(paid)links.push(`<a class="primaryLink" href="${report.fixed.download_url}">下载修复版 Word</a>`);
+    else links.push(`<button type="button" class="payButton" onclick="showPayPanel()">支付 ¥${escapeHtml(paywall.amount_yuan||'19.90')} 解锁修复版 Word</button>`);
+  }
+  if(report.report_files&&report.report_files.txt_download_url)links.push(`<a href="${report.report_files.txt_download_url}">TXT 报告</a>`);
+  if(report.report_files&&report.report_files.json_download_url)links.push(`<a href="${report.report_files.json_download_url}">JSON 报告</a>`);
+  downloadLinks.innerHTML=links.join("")+(!paid?renderPayPanel(report):"");
+}
+function renderPayPanel(report){return `<div id="payPanel" class="payPanel hidden"><div class="payTitle">解锁修复版 Word</div><div class="paySub">支付成功后将自动显示下载按钮。</div><div class="payActions"><button type="button" onclick="createPayment('wechat')">微信支付</button><button type="button" onclick="createPayment('alipay')">支付宝支付</button></div><div id="payContent" class="payContent"></div></div>`}
+function showPayPanel(){const panel=$("payPanel");if(panel)panel.classList.remove("hidden")}
+async function createPayment(provider){
+  if(!lastReport||!lastReport.job_id){alert("未找到当前检测任务，请重新检测。");return}
+  showPayPanel();
+  const content=$("payContent");
+  content.innerHTML="正在创建支付订单…";
+  const data=new FormData();
+  data.append("job_id",lastReport.job_id);
+  data.append("provider",provider);
+  try{
+    const response=await fetch("/api/payment/create",{method:"POST",body:data});
+    const payload=await response.json();
+    if(!response.ok)throw new Error(payload.detail||"创建支付订单失败");
+    if(payload.paid){await refreshPaymentStatus(true);return}
+    if(provider==="alipay"){
+      content.innerHTML=`<p>正在跳转支付宝收银台…</p><p class="payOrder">订单号：${escapeHtml(payload.out_trade_no||"")}</p>`;
+      window.open(payload.pay_url,"_blank");
+    }else{
+      content.innerHTML=`<p>请使用微信扫码支付 ¥${escapeHtml(payload.amount_yuan||"")}</p><img class="payQr" src="${payload.qr_data_uri}" alt="微信支付二维码"><p class="payOrder">订单号：${escapeHtml(payload.out_trade_no||"")}</p>`;
+    }
+    startPaymentPolling();
+  }catch(error){content.innerHTML=`<p class="payError">${escapeHtml(error.message||"创建支付订单失败")}</p>`}
+}
+function startPaymentPolling(){clearInterval(paymentPollTimer);paymentPollTimer=setInterval(()=>refreshPaymentStatus(false),2500)}
+async function refreshPaymentStatus(force){
+  if(!lastReport||!lastReport.job_id)return;
+  const response=await fetch(`/api/payment/status?job_id=${encodeURIComponent(lastReport.job_id)}`);
+  const payload=await response.json();
+  if(payload.paid){
+    clearInterval(paymentPollTimer);
+    lastReport.paywall=lastReport.paywall||{};
+    lastReport.paywall.paid=true;
+    const content=$("payContent");
+    if(content)content.innerHTML="✅ 支付成功，已解锁下载。";
+    renderDownloads(lastReport);
+  }else if(force){
+    const content=$("payContent");
+    if(content)content.innerHTML="尚未收到支付结果，请稍后再试。";
+  }
+}
 function escapeHtml(value){return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+window.showPayPanel=showPayPanel;window.createPayment=createPayment;
