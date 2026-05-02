@@ -9,26 +9,49 @@
 <body>
   <main class="page">
     <section class="hero">
-      <p class="eyebrow">Thesis Format Checker</p>
-      <h1>论文格式终检助手</h1>
-      <p class="subtitle">上传论文 Word 和学校格式要求 Word，自动检查参考文献、正文引用、图表编号、标题编号与学校格式要求，并生成修复版。</p>
+      <div class="heroContent">
+        <p class="eyebrow">Thesis Format Checker</p>
+        <h1>论文格式终检助手</h1>
+        <p class="subtitle">上传论文 Word，自动检查正文引用、参考文献、标题编号、图表编号与学校格式要求，并生成可下载的修复版。</p>
+        <div class="heroBadges">
+          <span>引用上标</span>
+          <span>交叉引用</span>
+          <span>空格清理</span>
+          <span>格式报告</span>
+        </div>
+      </div>
     </section>
-    <section class="card">
+
+    <section class="card uploadCard">
       <form id="uploadForm">
         <div class="uploadGrid">
-          <label class="upload"><input id="thesisInput" name="thesis_file" type="file" accept=".docx"><span id="thesisName">上传论文 .docx</span></label>
-          <label class="upload secondary"><input id="schoolInput" name="school_requirement_file" type="file" accept=".docx"><span id="schoolName">上传学校格式要求 .docx（可选）</span></label>
+          <label class="upload primaryUpload">
+            <input id="thesisInput" name="thesis_file" type="file" accept=".docx">
+            <span class="uploadIcon">📄</span>
+            <span id="thesisName">上传论文 .docx</span>
+            <small>支持自动生成修复版 Word</small>
+          </label>
+          <label class="upload secondary">
+            <input id="schoolInput" name="school_requirement_file" type="file" accept=".docx">
+            <span class="uploadIcon">🏫</span>
+            <span id="schoolName">上传学校格式要求 .docx（可选）</span>
+            <small>用于匹配字体、字号、行距与标题规则</small>
+          </label>
         </div>
-        <div class="options">
-          <label><input type="checkbox" id="fixSuperscript" checked> 自动修复正文引用格式</label>
-          <label><input type="checkbox" id="fixRanges" checked> 自动合并连续引用</label>
-          <label><input type="checkbox" id="fixSchoolFormat"> 按学校规范修复字体/字号/行距/标题/图表题</label>
+
+        <div class="options singleOption">
+          <label class="repairSwitch"><input type="checkbox" id="autoRepair" checked><span>一键修复</span><small>自动处理正文引用、连续引用、异常空格与可识别的学校格式规则</small></label>
         </div>
-        <p class="muted">已针对你上传的上海理工大学规范做了限制：不会动封面和授权声明；只处理摘要、正文、标题、图题、表题、参考文献等可识别段落；中文与英文/数字字体分开设置，避免全文变成异常大字。</p>
-        <button type="submit" id="submitBtn">开始检测</button>
+
+        <div class="actionRow">
+          <button type="submit" id="submitBtn">开始检测并生成修复版</button>
+          <span class="actionHint">检测完成后可直接下载 Word 与报告</span>
+        </div>
       </form>
     </section>
+
     <section id="status" class="status hidden"></section>
+
     <section id="result" class="result hidden">
       <div class="resultHeader"><div><h2>检测结果</h2><p id="filenameText" class="muted"></p></div><div id="downloadLinks" class="downloadLinks"></div></div>
       <div id="summaryGrid" class="summaryGrid"></div>
