@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>论文格式终检助手</title>
-  <link rel="stylesheet" href="/static/style.css?v=20260502-ui2">
+  <link rel="stylesheet" href="/static/style.css?v=20260503-trust1">
 </head>
 <body>
   <main class="pageShell">
@@ -19,11 +19,31 @@
           <span>Word 修复版</span>
           <span>检测报告</span>
         </div>
+        <div class="privacyStrip" aria-label="隐私安全承诺">
+          <span>🔒 文件仅用于本次格式检测</span>
+          <span>不用于模型训练</span>
+          <span>不提交查重系统</span>
+          <span>默认 24 小时自动清理</span>
+        </div>
       </div>
       <div class="heroPreview" aria-hidden="true">
         <div class="previewCard active"><span></span>引用识别</div>
         <div class="previewCard"><span></span>空格清理</div>
         <div class="previewCard"><span></span>格式报告</div>
+      </div>
+    </section>
+
+    <section class="trustPanel" aria-label="隐私与查重说明">
+      <div class="trustHeader">
+        <p class="eyebrow">PRIVACY FIRST</p>
+        <h2>上传论文前，先把隐私说明讲清楚</h2>
+        <p>本工具定位为论文格式终检与 Word 自动排版修复，不提供代写、降重或内容改写服务。</p>
+      </div>
+      <div class="trustGrid">
+        <div class="trustCard"><strong>不用于训练</strong><span>上传文件只用于本次检测与生成修复版，不会用于训练模型、制作案例或公开展示。</span></div>
+        <div class="trustCard"><strong>不进入查重库</strong><span>系统不会把论文提交到知网、维普、万方等查重平台，也不会主动向第三方查重库上传。</span></div>
+        <div class="trustCard"><strong>只修格式</strong><span>主要处理引用、参考文献、标题编号、图表编号、异常空格、字体字号与行距等格式问题。</span></div>
+        <div class="trustCard"><strong>自动清理</strong><span>上传文件与生成结果仅短期保存用于下载，默认 24 小时后自动清理。</span></div>
       </div>
     </section>
 
@@ -68,6 +88,11 @@
       <div id="schoolRulesBox" class="schoolRulesBox hidden"></div>
       <div class="columns"><div><h3>问题类型统计</h3><div id="typeCounts" class="list"></div></div><div><h3>问题明细</h3><div id="groupedIssues" class="issues"></div></div></div>
     </section>
+
+    <footer class="siteFooter">
+      <span>论文格式终检助手</span>
+      <span>文件仅用于本次格式检测，不用于训练，不提交查重系统。</span>
+    </footer>
   </main>
   <script src="/static/app.js?v=20260502-ui2" defer></script>
 </body>
