@@ -1,5 +1,5 @@
 from docx.oxml.ns import qn
-from analyzer.docx_edit import run_has_cross_reference
+from analyzer.docx_edit import run_has_cross_reference, iter_text_runs
 
 SPACE_CHARS = {
     " ", "\u00a0", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005",
@@ -76,11 +76,11 @@ def should_remove_boundary_space(prev_ch, next_ch):
 
 def clean_paragraph_whitespace(paragraph):
     chars = []
-    for run_index, run in enumerate(paragraph.runs):
+    for run_index, run in enumerate(iter_text_runs(paragraph)):
         text = run.text or ""
         protected = run_is_field_or_hyperlink(run)
         for char_index, ch in enumerate(text):
-            chars.append({"ch": ch, "run": run_index, "index": char_index, "protected": protected})
+            chars.append({"ch": ch, "run": run_index, "index": char_index, "protected": protected, "run_obj": run})
 
     if not chars:
         return 0
@@ -122,7 +122,7 @@ def clean_paragraph_whitespace(paragraph):
                 remove_positions.add((item["run"], item["index"]))
 
     removed = 0
-    for run_index, run in enumerate(paragraph.runs):
+    for run_index, run in enumerate(iter_text_runs(paragraph)):
         if run_is_field_or_hyperlink(run):
             continue
         old = run.text or ""
