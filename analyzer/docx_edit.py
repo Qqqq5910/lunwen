@@ -3,6 +3,7 @@ import re
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm
+from docx.text.run import Run
 
 
 def set_r_text(r_element, text):
@@ -36,11 +37,30 @@ def set_run_font(run, font_name):
     rfonts.set(qn("w:hAnsi"), font_name)
 
 
+def iter_text_runs(paragraph):
+    """Yield all visible text runs in paragraph text order.
+
+    python-docx Paragraph.runs only returns direct w:r children and skips runs
+    stored inside w:hyperlink/w:fldSimple. After this project creates clickable
+    citation links, those hyperlink runs still contribute to paragraph.text. If
+    they are skipped, later range-based fixes calculate wrong offsets and may
+    overwrite the character immediately after a citation (e.g. PC -> C,
+    NOTEARS -> OTEARS) or duplicate the citation marker.
+    """
+    for child in paragraph._p.iterchildren():
+        if child.tag == qn("w:r"):
+            yield Run(child, paragraph)
+        elif child.tag in {qn("w:hyperlink"), qn("w:fldSimple")}:
+            for sub in child.iterchildren():
+                if sub.tag == qn("w:r"):
+                    yield Run(sub, paragraph)
+
+
 def get_run_spans(paragraph):
     spans = []
     cursor = 0
-    for run in paragraph.runs:
-        text = run.text
+    for run in iter_text_runs(paragraph):
+        text = run.text or ""
         spans.append((cursor, cursor + len(text), run))
         cursor += len(text)
     return spans
@@ -218,7 +238,7 @@ def set_paragraph_basic_format(paragraph, rule):
 def set_paragraph_runs_format(paragraph, rule):
     font_name = rule.get("font")
     font_size = rule.get("size_pt")
-    for run in paragraph.runs:
+    for run in iter_text_runs(paragraph):
         if not run.text:
             continue
         if font_name:
